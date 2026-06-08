@@ -87,13 +87,35 @@ jeweils adaptiert):
 
 ### 9 · Initialer Commit (2026-06-09)
 - Erster Commit im bis dahin commit-freien Repository — Baseline des neu entwickelten Frameworks
-  (alle bis hier erstellten Artefakte auf Branch `main`).
+  (alle bis hier erstellten Artefakte auf Branch `main`). `.gitignore` ergänzt (Office-Sperrdateien).
+
+### 10 · SQL-Styleguide integriert (2026-06-09)
+- `.claude/rules/sql.md` (maßgeblicher SQL-Styleguide aus dem Parallelprojekt) als verbindliche
+  Grundlage gesetzt. Die sechs Objekt-Rules (`tables`/`procedures`/`functions`/`views`/`policies`/
+  `trigger`) verweisen nun darauf und ergänzen nur framework-spezifische Punkte; kollidierende
+  Platzhalter-Vorgaben (Naming/Layout) wurden entfernt.
+- Skills `backend`, `frontend`, `review` lesen zuerst `sql.md`.
+- CLAUDE.md um die App→Framework-Anpassungen zu `sql.md` ergänzt (Schema-Variablen, nicht
+  anwendbare Abschnitte).
+- Festgelegt: Die **Tabellen-Gruppen-Nummerierung** aus `sql.md` (`NNN.<objekt>.sql`, eine Tabelle
+  = eine Nummer, je Schema) wird übernommen — **innerhalb** der Unterordner pro Objekttyp; in den
+  6 Objekt-Rules in den `Ablage`-Zeilen verankert. Ladereihenfolge über den Deploy-Runner.
+
+### 11 · sql.md framework-nativ angepasst (2026-06-09)
+- `sql.md` von der diapp auf das Framework umgestellt: Schema-Variablen `:schema_app_*` → `:schema_name`
+  (Platzhalter) / `:schema_owner`; Abschnitt „Foreign Keys to `app.account`" durch generischen
+  FK-Abschnitt ersetzt; „File Naming & Numbering" auf Unterordner-Layout + Deploy-Runner umgeschrieben;
+  BUG-0337-Pfad auf `08.create.role.rw.sql` korrigiert; JOIN-/PK-Beispiele auf Framework-Bezug
+  (`log`-Schema, generischer External-Identifier) umgestellt; `diapp-XXXX`-Banner → `di2f-XXXX`.
+  Verifiziert: keine `app.*`/Keycloak/`deploy.sql`-Reste mehr.
 
 ## Erstellte Artefakte (Stand 2026-06-09)
 
 ```
 CLAUDE.md
+.gitignore
 .claude/skills/{requirements,architecture,backend,frontend,qa,review,deploy,security,bug}/SKILL.md
+.claude/rules/sql.md  (maßgeblicher SQL-Styleguide)
 .claude/rules/{tables,procedures,functions,views,policies,trigger}.md
 docs/product-requirements.md
 docs/bug/INDEX.md

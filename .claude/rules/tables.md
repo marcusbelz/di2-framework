@@ -1,32 +1,22 @@
 # Rule: Tabellen (PostgreSQL 17)
 
-Konventionen für Tabellen-Skripte im di2-framework. Je Tabelle **ein** Skript unter
-`db/schemas/<schema>/tables/<Tabelle>.sql`.
+> **Maßgeblich sind die SQL-Code-Konventionen in [sql.md](sql.md) — vor jedem Skript lesen.**
+> Naming (snake_case, **singular**, PK `id bigserial` + `CONSTRAINT pk_<table>`, Natural Keys
+> als `UNIQUE`, Timestamps mit Suffix **`_on`**), Layout/Alignment (Leading-Comma, Spalten
+> Name|Typ|Nullability|Default), Datei-Gerüst (`\echo`-Kopf/Fuß, `OWNER TO`) und FK-Regeln
+> stehen dort. **Bei Widerspruch gilt sql.md.**
+>
+> **Schema-Variablen:** im Framework `:schema_config` / `:schema_etl` / `:schema_helper` /
+> `:schema_log` und `:schema_owner` verwenden — **nicht** `:schema_app_*` aus den sql.md-Beispielen
+> (siehe `db/config/*.env.sql`).
 
-## Benennung
-- Schema-qualifiziert: `<schema>.<Tabelle>` (z. B. `log.component`).
-- Tabellen- und Spaltennamen in `snake_case`.
-- Primärschlüssel-Spalte: `<tabelle>_id` (oder `id`), als `bigint GENERATED ALWAYS AS IDENTITY`.
-
-## Aufbau (Pflicht)
-- Idempotent: `CREATE TABLE IF NOT EXISTS …`.
-- Primärschlüssel explizit benennen: `CONSTRAINT pk_<tabelle> PRIMARY KEY (...)`.
-- Fremdschlüssel: `CONSTRAINT fk_<tabelle>_<ref> FOREIGN KEY ...`.
-- Datentypen: `text` statt `varchar(n)` ohne fachlichen Grund; `timestamptz` für Zeitstempel; `numeric` für Beträge.
-- Audit-Spalten wo sinnvoll: `created_at timestamptz NOT NULL DEFAULT now()`, `created_by text`.
-- Sinnvolle `NOT NULL`- und `CHECK`-Constraints.
-- `COMMENT ON TABLE`/`COMMENT ON COLUMN` für fachliche Beschreibung.
-
-## Template
-```sql
--- <schema>.<tabelle> — <kurze Beschreibung>
-CREATE TABLE IF NOT EXISTS <schema>.<tabelle> (
-    <tabelle>_id  bigint GENERATED ALWAYS AS IDENTITY,
-    -- fachliche Spalten ...
-    created_at    timestamptz NOT NULL DEFAULT now(),
-    created_by    text,
-    CONSTRAINT pk_<tabelle> PRIMARY KEY (<tabelle>_id)
-);
-
-COMMENT ON TABLE <schema>.<tabelle> IS '<Zweck der Tabelle>';
-```
+## Framework-spezifisch
+- **Ablage:** je Tabelle ein Skript unter `db/schemas/<schema>/tables/<NNN>.<tabelle>.sql`.
+  `<NNN>` = 3-stellige **Tabellen-Gruppennummer** (je Schema fortlaufend in Erstellungs-Reihenfolge
+  vergeben, nie neu verteilt). Diese Nummer tragen alle Objekte dieser Tabelle (siehe sql.md
+  „File Naming & Numbering").
+- **Idempotenz:** `CREATE TABLE IF NOT EXISTS …`.
+- **RLS** auf sensiblen Tabellen aktivieren (v. a. `log.*`); Policies → [policies.md](policies.md).
+- **Audit-Spalten:** die sql.md-Variante `created_by`/`modified_by` = E-Mail des App-Users ist
+  app-geprägt — für Framework-Tabellen nur dort, wo fachlich sinnvoll (z. B. `config`).
+  Log-Tabellen tragen ihre eigenen Zeit-/Status-Spalten der Protokollierung.

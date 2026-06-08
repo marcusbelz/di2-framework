@@ -24,7 +24,10 @@ Verstehen, welche Kennzahlen/Sichten gefragt sind und auf welchen Tabellen sie a
 Per `AskUserQuestion`: Welche Spalten/Aggregationen? Pro Ebene (Execution/Component/Trace) oder übergreifend? Materialized View nötig (teure Aggregation)?
 
 ### 3. Views implementieren
-- **Konventionen verbindlich**: `.claude/rules/views.md`.
+- **Konventionen verbindlich**: **zuerst `.claude/rules/sql.md`** (maßgeblicher SQL-Styleguide;
+  Views `vw_<name>`, vertikales Layout, JOIN-Alignment), dann `.claude/rules/views.md`. Bei
+  Widerspruch gilt `sql.md`. Schema-Variablen: `:schema_config`/`:schema_etl`/`:schema_helper`/
+  `:schema_log` + `:schema_owner` (nicht `:schema_app_*`).
 - Je View ein Skript: `db/schemas/<schema>/views/v_<name>.sql` (Log-Views: `db/schemas/log/views/`).
 - Präfix `v`; idempotent (`CREATE OR REPLACE VIEW`); nur lesend, keine Seiteneffekte.
 - Spalten explizit benennen/aliasieren (kein `SELECT *` in dauerhaften Views); schema-qualifizierte Quellen.

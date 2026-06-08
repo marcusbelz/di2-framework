@@ -1,29 +1,16 @@
 # Rule: Views (PostgreSQL 17)
 
-Konventionen für Views. Je View **ein** Skript unter
-`db/schemas/<schema>/views/v<Name>.sql`.
+> **Maßgeblich sind die SQL-Code-Konventionen in [sql.md](sql.md) — vor jedem Skript lesen.**
+> Naming **`vw_<name>`**, snake_case, vertikales SELECT/FROM/WHERE-Layout, JOIN-Alignment
+> (`T01`/`T02`…), Datei-Gerüst (`\echo`, `OWNER TO`). **Bei Widerspruch gilt sql.md.**
+>
+> **Schema-Variablen:** `:schema_config`/`:schema_etl`/`:schema_helper`/`:schema_log` und
+> `:schema_owner` statt `:schema_app_*`.
 
-## Benennung
-- Präfix `v`, schema-qualifiziert: `<schema>.v<Name>` (z. B. `log.v_execution_duration`).
-- Sprechende Namen, die die Auswertung beschreiben.
-
-## Pflichten
-- Idempotent: `CREATE OR REPLACE VIEW …`.
-- Nur lesend; keine Seiteneffekte.
-- Spalten explizit benennen und aliasieren (kein `SELECT *` in dauerhaften Views).
-- Schema-qualifizierte Quelltabellen/-views.
-- Für teure Aggregationen ggf. `MATERIALIZED VIEW` erwägen (dann Refresh-Strategie dokumentieren).
+## Framework-spezifisch
+- **Ablage:** je View ein Skript unter `db/schemas/<schema>/views/<NNN>.vw_<name>.sql`
+  (Log-Views: `db/schemas/log/views/`). `<NNN>` = Nummer der zugrunde liegenden Haupttabelle.
+- Idempotent (`CREATE OR REPLACE VIEW`), **nur lesend**, Spalten explizit benennen/aliasieren
+  (kein `SELECT *` in dauerhaften Views).
+- Teure Aggregationen ggf. `MATERIALIZED VIEW` + dokumentierte Refresh-Strategie.
 - `COMMENT ON VIEW` mit fachlicher Beschreibung.
-
-## Template
-```sql
--- <schema>.v<Name> — <Beschreibung der Auswertung>
-CREATE OR REPLACE VIEW <schema>.v_<name> AS
-SELECT
-    t.spalte_1                         AS spalte_1,
-    count(*)                           AS anzahl
-FROM <schema>.<tabelle> AS t
-GROUP BY t.spalte_1;
-
-COMMENT ON VIEW <schema>.v_<name> IS '<Zweck der View>';
-```

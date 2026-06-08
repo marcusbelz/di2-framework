@@ -95,9 +95,15 @@ Quer dazu (jederzeit triggerbar, kein fester Schritt):
 
 ## Konventions-Regeln (Rules)
 
-Verbindliche Templates/Regeln je Objekttyp unter `.claude/rules/`:
-`tables.md`, `procedures.md`, `functions.md`, `views.md`, `policies.md`, `trigger.md`.
-`/backend`, `/frontend` und `/review` richten sich nach diesen Regeln.
+- **`.claude/rules/sql.md` ist der maßgebliche SQL-Styleguide** (Naming `sp_`/`fn_`/`tf_`/`tr_`/`vw_`, snake_case/singular, PK `id bigserial`, Timestamps `_on`, tabellarisches Alignment, Dollar-Quoting, `format()`-Fehlermeldungen, Body-Struktur „Get name / Check parameter / Workload", Trigger-Konventionen). **Bei Widerspruch gilt sql.md.**
+- Objekt-Regeln `tables.md`, `procedures.md`, `functions.md`, `views.md`, `policies.md`, `trigger.md` verweisen auf `sql.md` und ergänzen nur framework-spezifische Punkte (Ablageort, Idempotenz, Protokollierungs-Integration, RLS).
+- `/backend`, `/frontend`, `/review` lesen zuerst `sql.md`.
+
+`sql.md` wurde von der diapp **auf dieses Framework angepasst** (framework-nativ):
+- **Schema-Variablen:** Beispiele nutzen `:schema_name` als Platzhalter für die konkreten `:schema_config`/`:schema_etl`/`:schema_helper`/`:schema_log`; Owner `:schema_owner`.
+- **Datei-Layout:** Tabellen-Gruppen-Nummerierung (`NNN.<objekt>.sql`, eine Tabelle = eine Nummer, je Schema) **innerhalb** der Unterordner pro Objekttyp; Ladereihenfolge über den Deploy-Runner (`db/scripts/`), kein zentrales `deploy.sql`.
+- **FK-Abschnitt** generisch (kein `app.account`/Keycloak); `created_by`/`modified_by`-Audit nur wo fachlich sinnvoll.
+- **`lc_messages` (BUG-0337):** Grant an `:role_rw` nur nötig, falls die Logging-Konvention `SET LOCAL lc_messages` genutzt wird (kommentierter Hinweis in `db/database/08.create.role.rw.sql`).
 
 ## Dokumentation (`docs/`)
 

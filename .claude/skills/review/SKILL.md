@@ -21,7 +21,7 @@ Du reviewst **die Änderungen eines einzelnen Features**, nachdem `/qa` "product
 **In scope:**
 - Diff gegen `main` lesen, jede geänderte Datei prüfen.
 - Übereinstimmung mit der Feature-Spec (Akzeptanzkriterien wirklich im Code? Keine ungenannten Nebeneffekte?).
-- Conventions: `.claude/rules/{tables,procedures,functions,views,policies,trigger}.md`.
+- Conventions: **`.claude/rules/sql.md` (maßgeblich)** + `.claude/rules/{tables,procedures,functions,views,policies,trigger}.md`. Prüfen gegen sql.md: Naming (`sp_`/`fn_`/`tf_`/`tr_`/`vw_`), tabellarisches Alignment, Dollar-Quoting, `format()`-Fehlermeldungen, Body-Struktur; Schema-Name als Variable.
 - Code-Qualität: Single-Responsibility-Prozeduren, Lesbarkeit, Fehlerbehandlung, kein toter Code, keine vergessenen Test-/Debug-`RAISE NOTICE`.
 - Idempotenz aller `db/`-Skripte (`IF NOT EXISTS` / `CREATE OR REPLACE` / `DROP … IF EXISTS`).
 - Protokollierungs-Integration korrekt (Component/Trace/Error, Status deterministisch im `EXCEPTION`-Block).
