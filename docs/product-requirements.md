@@ -1,0 +1,73 @@
+# Product Requirements Document — di2-framework
+
+## Vision
+Ein wiederverwendbares **PostgreSQL-Framework** (Tabellen, Prozeduren, Funktionen), das **Prozessprotokollierung, Fehlerprotokollierung und Konfiguration** für daten- und ETL-getriebene Anwendungen standardisiert. Anwendungen binden das Framework ein, statt Logging-, Fehler- und Konfigurationslogik jedes Mal neu zu bauen.
+
+Kern ist eine **Protokollierung auf drei Ebenen**:
+- **Execution** (Prozessebene) — ein Eintrag pro Prozessausführung.
+- **Component** (Komponentenebene) — ein Datensatz pro Ausführung einer Prozedur oder Python-Funktion; wird nach Erfolg/Fehler aktualisiert.
+- **Trace** (detaillierteste Ebene) — Insert beim Start, Update mit Status nach Erfolg/Fehler.
+
+Dazu kommen eine **Error**-Tabelle für Datenfehler und ein **config**-Schema für die Konfiguration der einbindenden Anwendung. Das Framework wird aus einem bestehenden **SQL-Server-Framework** (`example/sample05.db/`) nach **PostgreSQL 17** portiert und erweitert.
+
+Ziel: konsistente, nachvollziehbare und wiederverwendbare Logging-/Monitoring-/Konfigurations-Infrastruktur über Projekte hinweg.
+
+## Target Users
+Interne Datenbank-, BI- und ETL-Entwickler (kleine Teams, 2–5 Personen), die PostgreSQL-basierte Datenprozesse bauen. Schmerzpunkte: jede Anwendung erfindet Logging, Fehlerbehandlung und Konfiguration neu; uneinheitliche Protokollierung erschwert Monitoring und Fehlersuche. Das Framework liefert dafür einheitliche, getestete Bausteine.
+
+## Core Features (Roadmap)
+Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald per `/requirements` eine Spec unter `docs/features/` entsteht.
+
+| Priority | Feature | Status | Implementierung |
+|----------|---------|--------|-----------------|
+| P0 (MVP) | Datenbank-, Schema- & Rollen-Setup (`db/database/`) | Geplant | — |
+| P0 (MVP) | Schema `log` — Tabellen `Execution`, `Component`, `Trace`, `Error` | Geplant | — |
+| P0 (MVP) | Prozessprotokollierung `Execution` (Insert/Update) | Geplant | — |
+| P0 (MVP) | Komponentenprotokollierung `Component` (Insert/Update inkl. Erfolg/Fehler/Warnung) | Geplant | — |
+| P0 (MVP) | Trace-Protokollierung (Insert beim Start, Update mit Status) | Geplant | — |
+| P0 (MVP) | Fehlerprotokollierung `Error` (Datenfehler) | Geplant | — |
+| P0 (MVP) | Schema `config` — `Configuration`-Tabelle + Lese-/Schreibfunktionen | Geplant | — |
+| P0 (MVP) | Deploy-/Teardown-Skripte (`db/scripts/`, Bash/Linux) | Geplant | — |
+| P1 | Schema `etl` — generische Dynamic-SQL-Prozeduren | Geplant | — |
+| P1 | Schema `helper` — Konvertierungsfunktionen (`fnConvert*`) | Geplant | — |
+| P1 | Konfigurations-Stammdaten (`config/data/`) | Geplant | — |
+| P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
+| P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
+| P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
+| P1 | Test-Suite (`db/tests/`) | Geplant | — |
+| P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Geplant | — |
+| P2 | Import/Export-File-Protokollierung (`ImportFile`/`ExportFile`) | Geplant | — |
+| P2 | HTML-Erfolgs-/Fehlerberichte (`spHTMLSuccess`/`spHTMLError`) | Geplant | — |
+| P2 | Erweiterte Monitoring-Views & Kennzahlen | Geplant | — |
+| P2 | Weitere Helper-/Konvertierungsfunktionen nach Bedarf | Geplant | — |
+
+## Success Metrics
+- Anzahl Anwendungen/Prozesse, die das Framework einbinden.
+- Abdeckung: Anteil der Prozeduren/Funktionen, die über das Framework protokollieren (Ziel: ~100% der produktiven Komponenten).
+- Zeit bis zur Integration der Protokollierung in einen neuen Prozess (Ziel: gering, da nur Aufrufe der Framework-Prozeduren nötig).
+- Nachvollziehbarkeit: Anteil der Fehler, die über `Error`/`Trace` bis zur Ursache rückverfolgbar sind.
+- Re-Deploy-Stabilität: Deployment ist idempotent und ohne manuelle Eingriffe wiederholbar.
+
+## Infrastructure
+- **Datenbank:** PostgreSQL 17, self-hosted auf **Hetzner Cloud VPS**.
+- **Umgebungen:** `dev`, `int`, `test`, `prod`.
+- **Deployment:** GitHub Actions → SSH → Hetzner; nutzt die Bash-Skripte unter `db/scripts/` sowie `db/database/` + `db/schemas/`.
+- **Prozeduren/Funktionen:** PL/pgSQL; PL/Python (`plpython3u`) nur, wo zwingend nötig.
+- **Kein Vercel, kein Supabase.**
+
+## Constraints
+- Zieldialekt ausschließlich **PostgreSQL 17 / PL/pgSQL**. Das SQL-Server-Framework dient nur als **Vorlage** (`example/sample05.db/`), nicht als Laufzeitziel.
+- **Ein Skript pro Objekt**, abgelegt nach Schema/Objekttyp (siehe `CLAUDE.md`).
+- Deployments sind **idempotent** (re-deploybar): `CREATE … IF NOT EXISTS` / `CREATE OR REPLACE`.
+- Konventionen je Objekttyp sind verbindlich (`.claude/rules/`).
+- Qualität vor Geschwindigkeit.
+
+## Non-Goals
+- **Keine Anwendungslogik und kein UI** — das Framework liefert nur Datenbank-Bausteine (die App ist ein separates Projekt, vgl. „diapp").
+- **Kein anderer Ziel-Dialekt** als PostgreSQL (kein SQL Server / MySQL / Oracle als Laufzeitziel).
+- **Keine Orchestrierung/Scheduling** der Prozesse — das Framework protokolliert und konfiguriert, startet aber keine Pipelines.
+- **Kein automatisches Ausführen** fachlicher ETL-Strecken; das Framework stellt nur generische, wiederverwendbare Bausteine bereit.
+
+---
+
+Nutze `/requirements`, um für jeden Roadmap-Eintrag oben eine detaillierte Feature-Spezifikation unter `docs/features/` zu erstellen.

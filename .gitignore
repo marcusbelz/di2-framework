@@ -1,0 +1,9 @@
+# Office-Sperr-/Temp-Dateien
+~$*
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Lokale Secrets / Env-Overrides (Beispiel-Configs in db/config bleiben versioniert)
+*.local.secret
