@@ -65,7 +65,7 @@
 - ALWAYS use **singular** table names (`user`, `project`, `task` — never `users`, `projects`, `tasks`). Applies to the table name itself; foreign-key column names follow naturally (`user_id`, not `users_id`).
 - ALWAYS suffix timestamp columns with **`_on`**, never `_at` (`created_on`, `modified_on`, `deleted_on`, `last_login_on`, `first_seen_on`). The TypeScript camelCase mapping uses the same suffix (`createdOn`, `lastLoginOn`).
 - ALWAYS give each table a surrogate primary key column **`id bigserial NOT NULL`** with `CONSTRAINT pk_<table> PRIMARY KEY (id)`. Natural keys (composite or otherwise) become **`UNIQUE` constraints**, not the PK. Applies to all tables, including lookup / Stammdaten tables and existing tables — existing deployed tables are dropped + recreated rather than data-migrated. Where a row needs to carry an external identifier, it lives in its own `UNIQUE` column (e.g. `external_ref varchar UNIQUE NOT NULL`), separate from the surrogate `id`.
-- ALWAYS store **the email address of the authenticated app user** in the audit columns `created_by` and `modified_by` — `varchar(255) NOT NULL`, no `DEFAULT CURRENT_USER`. The application supplies the email explicitly, either via a stored-procedure parameter (`p_actor_email varchar(255)`) or via a per-request session variable (`SET LOCAL app.actor_email = '…'` + column `DEFAULT current_setting('app.actor_email', true)`). The architecture step decides per feature which mechanism. `CURRENT_USER` (PG role) is **not** an acceptable substitute — it would always be the connection role (`di2_<env>_rw`, …), useless for app-level audit.
+- ALWAYS store **the email address of the authenticated app user** in the audit columns `created_by` and `modified_by` — no `DEFAULT CURRENT_USER` (Datentyp/Länge: siehe `tables.md`). The application supplies the email explicitly, either via a stored-procedure parameter (`p_actor_email varchar(100)`) or via a per-request session variable (`SET LOCAL app.actor_email = '…'` + column `DEFAULT current_setting('app.actor_email', true)`). The architecture step decides per feature which mechanism. `CURRENT_USER` (PG role) is **not** an acceptable substitute — it would always be the connection role (`di2_<env>_rw`, …), useless for app-level audit.
 - ALWAYS prefix stored-procedure and stored-function parameters with **`p_`** (e.g. `p_project_id`, `p_actor_email`) — distinguishes them from local variables (`l_` prefix). The mode keyword (`IN` / `OUT` / `INOUT`) carries the direction; do not encode mode in the name (use `p_result` not `p_out_result`).
 - `RETURNS` clause on a separate line
 - `LANGUAGE plpgsql` on a separate line
@@ -216,8 +216,8 @@ BEGIN
 - Referenzierte Tabelle immer schema-qualifiziert über die Schema-Variable.
 - Natural Keys werden `UNIQUE`-Constraints (nicht der PK — der ist immer `id bigserial`).
 - Audit-Spalten `created_by` / `modified_by` (nur dort, wo fachlich genutzt — v. a. `config`):
-  `varchar(255)`, vom aufrufenden Prozess gesetzt — **nie** `CURRENT_USER` (das wäre nur die
-  Verbindungsrolle, nicht der fachliche Akteur).
+  vom aufrufenden Prozess gesetzt — **nie** `CURRENT_USER` (das wäre nur die Verbindungsrolle,
+  nicht der fachliche Akteur). Datentyp/Länge siehe `tables.md`.
 
 Beispiel:
 ```sql
@@ -227,9 +227,9 @@ CREATE TABLE IF NOT EXISTS :schema_name.example
    ,parent_id    bigint            NULL
    ,name         varchar(200)  NOT NULL
    ,created_on   timestamptz   NOT NULL DEFAULT now()
-   ,created_by   varchar(255)  NOT NULL
+   ,created_by   varchar(100)  NOT NULL
    ,modified_on  timestamptz   NOT NULL DEFAULT now()
-   ,modified_by  varchar(255)  NOT NULL
+   ,modified_by  varchar(100)  NOT NULL
 
    ,CONSTRAINT pk_example            PRIMARY KEY (id)
 

@@ -1,0 +1,21 @@
+\echo "## CREATE TABLE :schema_log.import_file"
+
+CREATE TABLE IF NOT EXISTS :schema_log.import_file
+(
+    id                  bigserial       NOT NULL
+   ,execution_id        bigint          NOT NULL
+   ,file_name_source    varchar(1024)   NOT NULL
+   ,file_name_working   varchar(1024)   NOT NULL
+   ,file_name_archive   varchar(1024)       NULL
+   ,created             timestamptz         NULL
+   ,file_size           bigint              NULL
+   ,import_date         timestamptz         NULL
+
+   ,CONSTRAINT pk_import_file               PRIMARY KEY (id)
+
+   ,CONSTRAINT fk_import_file_execution_id  FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id)
+);
+ALTER TABLE :schema_log.import_file OWNER TO :schema_owner;
+COMMENT ON TABLE :schema_log.import_file IS 'Informationen zu importierten Dateien.';
+
+\echo "## CREATE TABLE :schema_log.import_file - DONE"

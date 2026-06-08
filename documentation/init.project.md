@@ -109,6 +109,33 @@ jeweils adaptiert):
   (`log`-Schema, generischer External-Identifier) umgestellt; `diapp-XXXX`-Banner → `di2f-XXXX`.
   Verifiziert: keine `app.*`/Keycloak/`deploy.sql`-Reste mehr.
 
+### 12 · log- und config-Tabellen portiert (2026-06-09)
+- Die im Workbook `example/sample05.db/_other/sample05.create.xlsm` beschriebenen Tabellen
+  (Arbeitsblätter mit Präfix `LOG.`/`CONFIG.`) nach PostgreSQL 17 portiert. Quelle waren die
+  generierten SQL-Server-`.sql`-Dateien (`example/sample05.db/{LOG,CONFIG}/Tables/`), da die
+  Namensspalte im Workbook mehrdeutig war.
+- Erzeugt: `db/schemas/log/tables/00{1..6}.{execution,component,trace,error,import_file,export_file}.sql`
+  und `db/schemas/config/tables/00{1..4}.{configuration,check_constraint,db_version,table_metadata}.sql`.
+- snake_case-Spalten, PG-Datentypen/Defaults; PK/FK/Nullable übernommen.
+- Typ-Mapping: `nvarchar(n)`→`varchar(n)`, `nvarchar(max)`→`text`, `int`/`bigint IDENTITY`→`bigserial`,
+  FK-Spalten→`bigint`, `bit`→`boolean`, `datetime`→`timestamptz`, `char/nchar`→`char`;
+  `getutcdate()`→`now()`, `suser_sname()`→`current_user`, `(1)/(0)`→`true/false`.
+- Reservierte Wörter umbenannt: `Group`→`group_name`, `User`→`user_name`, `Start/End`→`start_on/end_on`,
+  `Constraint`→`constraint_clause`.
+- Abweichung von sql.md (bewusst, faithful port): natürliche/zusammengesetzte PKs beibehalten
+  (`configuration`, `db_version`, `table_metadata`) statt Surrogat-`id`; AK1 aus den Extended
+  Properties als `uq_table_metadata_ak1` übernommen. Trigger (ModifiedOn/By) noch nicht portiert.
+
+### 13 · Tabellen-Review & neue Datentyp-Regeln (2026-06-09)
+- User hat Spalten/Datentypen manuell überarbeitet; Review auf reservierte Wörter: einzige Kollision
+  `collation` (PG-reserviert) → `collation_name`. Folgefehler korrigiert: PK von `configuration`
+  zeigte nach Umbenennung noch auf `group_name` → auf `(section, code)` gesetzt.
+- Neue verbindliche Datentyp-Regeln: **Zeichenspalten immer `varchar`, nie `text`**;
+  **`created_by`/`modified_by` immer `varchar(100)`**. Alle 10 Tabellen entsprechend angepasst
+  (alle `text`-Spalten → `varchar`; Audit-Spalten → `varchar(100)`).
+- Ablageort der Regeln geklärt: **Datentyp-/Spalten-Design-Regeln gehören in `tables.md`** (dort
+  maßgeblich); `sql.md` (Code-/Stil-Styleguide) verweist nur darauf, statt sie selbst festzuschreiben.
+
 ## Erstellte Artefakte (Stand 2026-06-09)
 
 ```

@@ -16,6 +16,11 @@
   vergeben, nie neu verteilt). Diese Nummer tragen alle Objekte dieser Tabelle (siehe sql.md
   „File Naming & Numbering").
 - **Idempotenz:** `CREATE TABLE IF NOT EXISTS …`.
+- **Datentypen (verbindlich — hier ist die maßgebliche Stelle):**
+  - Zeichenspalten immer **`varchar`**, **nie `text`**. In PostgreSQL ist `varchar` (ohne Länge)
+    intern identisch zu `text` (gleiche Speicherung/Performance); `varchar(n)` erzwingt zusätzlich
+    eine Längenprüfung. Unbegrenzte Felder: `varchar` **ohne** Länge.
+  - Audit-Spalten `created_by` / `modified_by` immer **`varchar(100)`**.
 - **RLS** auf sensiblen Tabellen aktivieren (v. a. `log.*`); Policies → [policies.md](policies.md).
 - **Audit-Spalten:** die sql.md-Variante `created_by`/`modified_by` = E-Mail des App-Users ist
   app-geprägt — für Framework-Tabellen nur dort, wo fachlich sinnvoll (z. B. `config`).
