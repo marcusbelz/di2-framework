@@ -32,7 +32,7 @@ Du reviewst **die Änderungen eines einzelnen Features**, nachdem `/qa` "product
 - Projektweiter Security-Sweep, Rechte-/RLS-Audit über alle Tabellen → `/security`.
 
 ## Vor dem Start
-1. Argument lesen: Pfad zur Feature-Spec (`docs/features/di2f-XXXX-*.md`).
+1. Argument lesen: Pfad zur Feature-Spec (`features/di2f-XXXX-*.md`).
 2. Spec lesen — Akzeptanzkriterien, Tech Design, QA Test Results (passed? welche Bugs behoben?).
 3. Diff sammeln: `git log --oneline` seit letztem Deploy, `git diff <base>...HEAD` für die geänderten Dateien.
 

@@ -60,7 +60,7 @@ jeweils adaptiert):
 ### 4 · Product Requirements Document (2026-06-08)
 - `docs/product-requirements.md` angelegt: Vision, Target Users, Core-Features-Roadmap
   (P0/P1/P2), Success Metrics, Infrastructure, Constraints, Non-Goals — inhaltlich auf das
-  Framework gemünzt. Feature-ID-Schema festgelegt: `di2f-XXXX` unter `docs/features/`.
+  Framework gemünzt. Feature-ID-Schema festgelegt: `di2f-XXXX` unter `features/`.
 
 ### 5 · Bug-Tracking (2026-06-08)
 - `/bug`-Skill aus dem Parallelprojekt übernommen und adaptiert (Verzeichnis `docs/bug/`,
@@ -150,7 +150,7 @@ jeweils adaptiert):
   **inline** in `execution` (alle FKs zeigen nun auf niedrigere Nummern).
 
 ### 15 · Erste Feature-Spec (di2f-0001) via /requirements (2026-06-09)
-- `docs/features/di2f-0001-finalisierung-log-process.md` erstellt: Finalisierung `log.process`
+- `features/di2f-0001-finalisierung-log-process.md` erstellt: Finalisierung `log.process`
   (Insert/Update/Delete-Prozeduren, Seed-Daten, Testskript). Geklärt: `name` UNIQUE; Delete weist
   referenzierte Prozesse mit Vorab-Check ab; Audit über `current_user`/Trigger; schlanke
   Protokollierung (nur `RAISE`). 12 Akzeptanzkriterien. PRD-Roadmap verlinkt.

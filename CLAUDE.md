@@ -105,10 +105,10 @@ Quer dazu (jederzeit triggerbar, kein fester Schritt):
 - **FK-Abschnitt** generisch (kein `app.account`/Keycloak); `created_by`/`modified_by`-Audit nur wo fachlich sinnvoll.
 - **`lc_messages` (BUG-0337):** Grant an `:role_rw` nur nötig, falls die Logging-Konvention `SET LOCAL lc_messages` genutzt wird (kommentierter Hinweis in `db/database/08.create.role.rw.sql`).
 
-## Dokumentation (`docs/`)
+## Dokumentation (`features/` + `docs/`)
 
+- `features/di2f-XXXX-<slug>.md` — Feature-Specs (erzeugt durch `/requirements`); ID-Schema `di2f-XXXX`. Liegt im **Projekt-Root** (nicht unter `docs/`).
 - `docs/product-requirements.md` — **PRD**: Vision, Target Users, Core-Features-Roadmap (P0/P1/P2 mit Status & Implementierung), Success Metrics, Infrastructure, Constraints, Non-Goals.
-- `docs/features/di2f-XXXX-<slug>.md` — Feature-Specs (erzeugt durch `/requirements`); ID-Schema `di2f-XXXX`.
 - `docs/architecture/<feature>.md` — Architektur-Dokumente (`/architecture`).
 - `docs/security-audit.md` — Befunde aus `/security`; Gate für `/deploy prod`.
 - `docs/bug/` — Bug-Tracking (`/bug`): `INDEX.md`, offene Bugs flach, geschlossene unter `archive/YYYY-QN/`.
