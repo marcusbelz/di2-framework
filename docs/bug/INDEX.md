@@ -6,8 +6,8 @@
 
 | Feld | Wert |
 |------|------|
-| Zuletzt aktualisiert | 2026-06-08 |
-| Offene Bugs | 0 |
+| Zuletzt aktualisiert | 2026-06-09 |
+| Offene Bugs | 1 |
 | Behobene Bugs | 0 |
 | Won't Fix | 0 |
 
@@ -17,3 +17,4 @@
 
 | ID | Titel | Erfasst am | Geschlossen am | Geschlossen-Hinweis | Quelle |
 |----|-------|------------|----------------|---------------------|--------|
+| [BUG-0001](bug-0001-umgebungs-reihenfolge-int-test-vertauscht.md) | Branch→Umgebung-Zuordnung: int und test vertauscht | 2026-06-09 | — | ❌ Offen | manual |
