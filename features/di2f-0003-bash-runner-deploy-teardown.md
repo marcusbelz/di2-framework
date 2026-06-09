@@ -125,3 +125,22 @@ Alle: `<env>` ∈ {local,dev,int,test,prod} (Default `local`); laden `db/config/
 - `deploy all` setzt voraus, dass `create.sh` bereits gelaufen ist (Schemas/Rollen existieren) — sonst klarer Abbruch.
 - Linux/Bash + `psql`-Client auf der ausführenden Maschine (Workflow-Runner bzw. Hetzner).
 - Wird vorausgesetzt von di2f-0004 (Workflows rufen die Runner).
+
+---
+
+## Backend-Umsetzung (Schnittstellen & Entscheidungen)
+
+**Artefakte** (`db/scripts/`): `create.sh`, `deploy.sh`, `clean.sh`, `drop.sh`, `clean.schema.sql` (Helfer), `README.md`.
+
+**CLI-Schnittstellen** (für di2f-0004-Workflows):
+- `create.sh <env>` — verbindet als `postgres`; 2 psql-Schritte (01 gegen `postgres`-DB, 02–10 gegen `<DB_NAME>`).
+- `deploy.sh <schema> <env>` — `<schema>` ∈ {config, etl, helper, log, **all**}; verbindet als `<DB_NAME>_fw`.
+- `clean.sh <schema> <env>` — wie deploy; verbindet als `<DB_NAME>_fw`.
+- `drop.sh <env>` — verbindet als `postgres`.
+- Alle: `<env>` default `local`; `set -e` + `ON_ERROR_STOP=1`; Exit ≠ 0 bei unbekanntem env/schema oder fehlendem Passwort (nicht-local).
+
+**Passwort-Mapping** (psql `-v` bzw. PGPASSWORD): `DB_ADMIN_PASSWORD_POSTGRES` (Superuser-Connect), `DB_OWNER_PASSWORD`→`database_owner_password` (01), `DB_FW_PASSWORD`→`schema_owner_password` (03) + fw-Connect, `DB_SA_PASSWORD`→`user_sa_password` (09). local → `pw`.
+
+**Entscheidung Clean-Strategie (Verbesserung ggü. Tech-Design F):** Statt `DROP SCHEMA CASCADE` + Grant-Reapply droppt `clean.schema.sql` nur die **Objekte** im Schema (Views/Tabellen/Routinen/Sequenzen per Introspektion), das **Schema bleibt**. Weil `deploy.sh` als `fw` verbindet und `08.create.role.rw.sql` Default Privileges `FOR ROLE :schema_owner` setzt, werden neu deployte Objekte **automatisch** an `:role_rw` granted → **kein** Grant-Reapply nötig, kein BUG-0335-Äquivalent.
+
+**Test-Stand:** Syntax (`bash -n`) ✓; Validierungspfade (unbekannt env/schema, Usage) ✓; Lade-Reihenfolge per Trockenlauf verifiziert (Sektionen + Nummern; `tf_` vor `tr_`) ✓. **Live-Smoke-Test (create→deploy→clean→idempotenz) gegen echtes PostgreSQL steht aus** — auf dem Host fehlt der `psql`-Client und es gibt keinen framework-eigenen PG-Container; auszuführen lokal oder über die dev-Umgebung (di2f-0004).
