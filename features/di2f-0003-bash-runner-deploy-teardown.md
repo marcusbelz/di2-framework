@@ -154,4 +154,4 @@ Alle: `<env>` ∈ {local,dev,int,test,prod} (Default `local`); laden `db/config/
 - `deploy.sh log local` (re-deploy) → 7 Tabellen zurück, `role_rw` hat **weiterhin** INSERT-Recht → **kein Grant-Reapply nötig** (Kern-Designentscheidung bestätigt).
 - `drop.sh local` → Datenbank + Rollen entfernt.
 
-> **Setup-Hinweis (kein Bug der Runner):** Im `docker/`-Compose mountet `${GIT_REPO_PATH}:/di2` unter Windows wegen des Laufwerks-`C:` nach `/di2-framework` statt `/di2`. Die Runner sind davon unberührt (relative `SCRIPT_DIR`-Pfade). Für ein sauberes `/di2`-Ziel den Mount in `docker.di2f.yml` robuster notieren (z. B. long-syntax `type: bind`).
+> **Setup-Hinweis:** Das `docker/`-Compose bindet das Repo unter `/di2-framework` ein (so in `docker.di2f.yml` festgelegt); die Runner sind pfadunabhängig (relative `SCRIPT_DIR`-Pfade). Lokales Deployment ist in `docker/README.md` dokumentiert.
