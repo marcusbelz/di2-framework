@@ -7,3 +7,7 @@ Thumbs.db
 
 # Lokale Secrets / Env-Overrides (Beispiel-Configs in db/config bleiben versioniert)
 *.local.secret
+
+# Lokale Docker-Env mit Passwort/Maschinenpfad — nicht versionieren (Template: *.example)
+docker/docker.di2f.*.env
+!docker/docker.di2f.*.env.example

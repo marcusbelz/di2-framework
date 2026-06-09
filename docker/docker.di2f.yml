@@ -1,0 +1,34 @@
+name: ${COMPOSE_PROJECT_NAME:-templates}
+
+services:
+  postgres:
+    image: postgis/postgis:17-master
+    container_name: ${CONTAINER_NAME}
+    hostname: postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_HOST_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      # Persistentes Datenverzeichnis
+      - pgdata:/var/lib/postgresql/data
+      # Lokales Git-Repository (read-only eingebunden)
+      - ${GIT_REPO_PATH}:/di2-framework
+    networks:
+      - cnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dev} -d ${POSTGRES_DB:-gisdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  cnet:
+    driver: bridge
