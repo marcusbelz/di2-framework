@@ -123,7 +123,23 @@ Antworte mit dieser Struktur:
 _Kurzer Überblick, wo das Projekt steht._
 
 ### Feature-Übersicht
-_Tabelle der Features + aktueller Status (aus `features/INDEX.md` + `features/archive/INDEX.md`)._
+_Tabelle der Features (aus `features/INDEX.md` + `features/archive/INDEX.md`) mit Spalten:_
+**ID | Feature | Status | Nächster Skill**.
+
+Den **nächsten Skill** je Feature aus dem Detail-Stand ableiten (Step 1/2):
+
+| Stand des Features | Nächster Skill |
+|--------------------|----------------|
+| Geplant, kein `## Tech Design` | `/architecture di2f-XXXX` |
+| Tech Design da, nicht umgesetzt | `/backend di2f-XXXX` (danach `/frontend`, falls „Views nötig: Ja") |
+| umgesetzt, kein `## QA Test Results` | `/qa di2f-XXXX` |
+| QA bestanden, kein `## Code Review` | `/review features/di2f-XXXX-*.md` |
+| reviewt, noch nicht auf dev | `/deploy dev` |
+| auf dev | `/deploy int` / `/deploy test` |
+| auf test, Security offen/veraltet | `/security` |
+| Security grün | `/deploy prod` |
+| Deployed (Archiv) | — (abgeschlossen) |
+| Abgelöst | — (Nachfolger im Spec-Header) |
 
 ### Empfohlener nächster Schritt
 _Das eine Wichtigste, mit dem exakten Befehl._
