@@ -162,3 +162,35 @@ Reihenfolge der konkreten Einrichtung (ausführbar via `git` + `gh`/GitHub-UI):
 
 ### Production-Ready-Entscheidung
 **READY (für die Governance-Schicht).** Keine Critical/High. Die Branch-/Schutz-/Environment-Konfiguration ist korrekt und verifiziert. AC 6 und AC 10 sind **kein Fehler**, sondern liegen per Architektur-Split in **di2f-0004** (Workflows + Secrets) — die volle Laufzeit-Durchsetzung der Branch→Umgebung-Regel ist erst mit den Workflows aus di2f-0004 end-to-end testbar.
+
+---
+
+## Code Review
+
+- **Reviewer:** `/review` (Claude) · **Datum:** 2026-06-09 · **Commit-Range (Spec-Lifecycle):** `07315f5..bed155f` (+ GitHub-Konfig extern, in QA per API verifiziert)
+- **Art:** Infrastruktur-/Governance-Feature — **kein DB-Code**, daher SQL-Konventionen (`sql.md`) nicht anwendbar. Geprüft: Spec-Konsistenz, GitHub-Konfig ↔ Spec, Doku, Security-Smells.
+
+### Diff-Scope
+- Repo-seitig nur die Spec-Datei (Requirements + Tech Design + QA Results). **Keine** `db/`-Artefakte (per `git log` bestätigt) — korrekt für dieses Feature.
+- Die eigentlichen Deliverables (Branch `dev`, Ruleset `protect-main`, 4 Environments) sind GitHub-seitig und in der QA-Sektion über die GitHub REST API belegt.
+
+### Spec ↔ Umsetzung
+- AC 1–5, 7–9 sind in der realen Konfig nachgewiesen (Ruleset-Regeln `pull_request`/`non_fast_forward`/`deletion` auf `~DEFAULT_BRANCH`; Env-Branch-Policies dev/test→`dev`, int/prod→`main`; nur 4 Environments).
+- Verlinkte Spec `di2f-0004` existiert (kein toter Link).
+
+### Findings
+
+**Blocker:** keine.
+**Major:** keine.
+
+**Minor:**
+- *(Doku-Konsistenz, Spec — Abschnitt „Scope"/AC 6+10):* Scope und AC 6/10 lesen sich, als liefere di2f-0002 selbst Deploy-Workflow + Secrets; per Architektur-Split gehören sie zu **di2f-0004**. Die QA-Sektion stellt das richtig, der Scope/AC-Block oben aber noch nicht. **Vorschlag:** im Scope einen Verweis ergänzen („Workflow + Secrets → di2f-0004") bzw. AC 6/10 dort als „realisiert in di2f-0004" markieren. Nicht-blockierend.
+
+**Info / Security-Smell (Konfig):**
+- Environments mit `can_admins_bypass: true` → Repo-Admin kann die Deployment-Branch-Policy umgehen. Bereits als `/security`-Kandidat in der QA-Sektion notiert. Positiv: das Ruleset `protect-main` hat **keine** Bypass-Liste → `main`-Schutz gilt auch für Admins.
+
+### Deploy-Tauglichkeit
+- Dieses Feature durchläuft **nicht** den DB-`/deploy`-Pfad (dev→…→prod betrifft DB-Objekte). Die Governance-Konfig ist bereits **aktiv** auf GitHub; die Spec liegt via PR #1 auf `main`. di2f-0002 ist damit effektiv abgeschlossen.
+
+### Empfehlung
+**Approve with Comments** — keine Blocker/Major; ein Minor (Doku-Konsistenz Scope/AC 6+10) und ein Info-Security-Hinweis (Admin-Bypass der Environments → `/security`). Beide nicht-blockierend; können als Follow-up adressiert werden.
