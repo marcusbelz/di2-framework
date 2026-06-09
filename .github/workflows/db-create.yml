@@ -2,7 +2,7 @@ name: DB - create
 
 # Einmaliges DB-/Rollen-/User-Setup einer Umgebung (ruft db/scripts/create.sh).
 # Manuell auslösbar. Branch->Umgebung wird nativ über die GitHub-Environment-
-# Deployment-Branches erzwungen (dev/test <- dev, int/prod <- main; siehe di2f-0002).
+# Deployment-Branches erzwungen (dev/int <- dev, test/prod <- main; siehe di2f-0002).
 
 on:
   workflow_dispatch:

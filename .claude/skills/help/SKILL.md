@@ -89,7 +89,7 @@ DB-Framework (keine UI).
 
 **Auf test und Security-Audit grün:**
 > `docs/security-audit.md` zeigt **Go-Live ✅ JA** ohne offene Critical/High-Findings.
-> Code muss dafür über einen **Pull Request nach `main`** (main ist PR-only, speist int/prod).
+> Code muss dafür über einen **Pull Request nach `main`** (main ist PR-only, speist test/prod).
 > Dann `/deploy prod` ausführen.
 
 **Alle Features deployt:**
@@ -113,7 +113,7 @@ aktuellen Stands. Häufige Fragen:
 - **„Wie ist die Projektstruktur?"** → `db/database/` (Bootstrap), `db/schemas/<config|etl|helper|log>/{tables,procedures,functions,policies,trigger,views,data}/`,
   `db/scripts/` (Bash-Runner), `db/config/<env>.env(.sql)`, `features/` (Specs), `docs/` (PRD, bug, security-audit), `docker/` (lokaler PG).
 - **„Wie deploye ich?"** → `/deploy <env>` + 4 Umgebungen; Branch-Mapping aus di2f-0002:
-  `dev`-Branch → dev/test, `main`-Branch → int/prod; `main` ist PR-only; `prod` nur nach grünem `/security`.
+  `dev`-Branch → dev/int, `main`-Branch → test/prod; `main` ist PR-only; `prod` nur nach grünem `/security`.
 
 ## Output Format
 

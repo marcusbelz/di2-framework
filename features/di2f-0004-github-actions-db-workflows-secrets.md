@@ -7,7 +7,7 @@
 ## Problem / Motivation
 Das Repository hat noch keine `.github/workflows/`. Das DB-Setup, Deploy und Teardown sollen — **analog zum Parallelprojekt `di2`** — über manuell auslösbare GitHub-Actions-Workflows laufen, die per SSH auf den Hetzner-Server gehen und dort die Bash-Runner aus di2f-0003 ausführen. Dafür werden **Secrets für den DB-/Server-Zugriff** je Umgebung benötigt; der User soll bei der Anlage geführt werden.
 
-Im Parallelprojekt ist nur das Schema `app` wählbar; hier müssen die **vier** Schemas (`config`, `etl`, `helper`, `log`) plus `all` auswählbar sein. Die Branch→Umgebung-Zuordnung folgt di2f-0002 (`dev`-Branch → dev/test, `main`-Branch → int/prod).
+Im Parallelprojekt ist nur das Schema `app` wählbar; hier müssen die **vier** Schemas (`config`, `etl`, `helper`, `log`) plus `all` auswählbar sein. Die Branch→Umgebung-Zuordnung folgt di2f-0002 (`dev`-Branch → dev/int, `main`-Branch → test/prod).
 
 ## User Stories
 - Als **Deployer** möchte ich Deploy/Setup/Teardown über die GitHub-Actions-Oberfläche manuell auslösen (`workflow_dispatch`), damit ich Zeitpunkt und Ziel bewusst kontrolliere.
@@ -26,7 +26,7 @@ Vier Workflows unter `.github/workflows/` (Vorlage: `di2/.github/workflows/db-*.
 
 Workflow-Mechanik (aus `di2` übernommen, angepasst):
 - SSH via `appleboy/ssh-action`; Zielverzeichnis auf dem Server pro Umgebung (z. B. `…/di2-framework/<env>`).
-- **Branch-Auflösung** gemäß di2f-0002: `int`/`prod` → `main`, `dev`/`test` → `dev`; der Server checkt vor dem Run den passenden Branch aus (`git fetch` + `git reset --hard origin/<branch>`).
+- **Branch-Auflösung** gemäß di2f-0002: `test`/`prod` → `main`, `dev`/`int` → `dev`; der Server checkt vor dem Run den passenden Branch aus (`git fetch` + `git reset --hard origin/<branch>`).
 - Destruktive Workflows (clean/drop) mit vorgelagertem Guard-Job, der die `confirm`-Eingabe prüft.
 - DB-Passwörter und SSH-Zugang als `${{ secrets.* }}`.
 
@@ -62,11 +62,11 @@ Keine direkte (siehe di2f-0003).
 3. `db-create` und `db-drop` bieten einen `environment`-Input (dev/int/test/prod).
 4. `db-clean` und `db-drop` verlangen eine getippte Bestätigung (`clean` bzw. `drop`); bei Abweichung bricht ein Guard-Job vor jeder destruktiven Aktion ab.
 5. Jeder Workflow-Job läuft mit `environment: <gewählte Umgebung>`, sodass die Environment-Secrets der Umgebung gezogen werden.
-6. Die ausgecheckte Branch auf dem Server folgt der Zuordnung aus di2f-0002: `int`/`prod` → `main`, `dev`/`test` → `dev`.
+6. Die ausgecheckte Branch auf dem Server folgt der Zuordnung aus di2f-0002: `test`/`prod` → `main`, `dev`/`int` → `dev`.
 7. Die Workflows verbinden per SSH mit `HETZNER_SSH_HOST`/`HETZNER_SSH_USER`/`HETZNER_SSH_PRIVATE_KEY` und übergeben die DB-Passwörter als Umgebungsvariablen an die Bash-Runner.
 8. Die benötigten Secrets sind dokumentiert und für **alle vier** Umgebungen gesetzt: `HETZNER_SSH_HOST`, `HETZNER_SSH_USER`, `HETZNER_SSH_PRIVATE_KEY`, `DB_ADMIN_PASSWORD_POSTGRES`, `DB_OWNER_PASSWORD`, `DB_FW_PASSWORD`, `DB_SA_PASSWORD`.
 9. Es existiert eine geführte Checkliste/Anleitung zur Secret-Anlage je Umgebung.
-10. Ein Deploy nach `int`/`prod` aus dem `dev`-Branch (bzw. `dev`/`test` aus `main`) ist durch die Branch-Auflösung/Guards ausgeschlossen.
+10. Ein Deploy nach `test`/`prod` aus dem `dev`-Branch (bzw. `dev`/`int` aus `main`) ist durch die Branch-Auflösung/Guards ausgeschlossen.
 
 ## Edge Cases
 - **Bestätigung falsch** (`confirm` ≠ `clean`/`drop`) → Guard-Job schlägt fehl, keine destruktive Aktion.
@@ -119,7 +119,7 @@ SSH-Secrets für **alle**: `HETZNER_SSH_HOST`, `HETZNER_SSH_USER`, `HETZNER_SSH_
 
 ### E) Datenfluss & Branch-Durchsetzung
 1. User startet Workflow manuell, wählt Umgebung (und ggf. Schema/Bestätigung).
-2. **Native Branch-Sperre (di2f-0002):** GitHub lässt den Lauf nur zu, wenn er aus dem für die Umgebung erlaubten Branch kommt (`dev`/`test` ← `dev`, `int`/`prod` ← `main`) — sonst Abbruch **vor** dem Start. Es braucht **keinen** zusätzlichen Skript-Guard für die Branch-Regel.
+2. **Native Branch-Sperre (di2f-0002):** GitHub lässt den Lauf nur zu, wenn er aus dem für die Umgebung erlaubten Branch kommt (`dev`/`int` ← `dev`, `test`/`prod` ← `main`) — sonst Abbruch **vor** dem Start. Es braucht **keinen** zusätzlichen Skript-Guard für die Branch-Regel.
 3. SSH zum Server; der umgebungs-Checkout wird auf den auslösenden Branch gebracht (`git fetch` + `git reset --hard origin/<github.ref_name>`) — der ist durch Schritt 2 garantiert der richtige.
 4. Der Bash-Runner (di2f-0003) läuft mit den als Umgebungsvariablen übergebenen Secrets; Erfolg/Fehler steht im Actions-Log.
 

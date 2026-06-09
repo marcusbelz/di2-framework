@@ -12,9 +12,9 @@ die Bash-Runner aus `db/scripts/` (di2f-0003) ausführen.
 
 ## Branch → Umgebung
 Nativ über die GitHub-Environment-Deployment-Branches (di2f-0002):
-`dev`/`test` ← Branch `dev`, `int`/`prod` ← Branch `main`. Läufe aus dem falschen Branch
+`dev`/`int` ← Branch `dev`, `test`/`prod` ← Branch `main`. Läufe aus dem falschen Branch
 werden von GitHub **vor** dem Start blockiert. Beim Dispatch „Use workflow from" passend wählen
-(prod/int → `main`, dev/test → `dev`).
+(test/prod → `main`, dev/int → `dev`).
 
 ## Setup je Environment (`dev`, `int`, `test`, `prod`)
 

@@ -4,6 +4,13 @@
 - **Status:** Deployed (Governance live auf GitHub; 2026-06-09)
 - **Schema(s):** — (Infrastruktur / CI-CD / Repo-Governance; kein DB-Schema betroffen)
 
+> **⚠️ Korrektur (BUG-0001, 2026-06-09):** Die Branch→Umgebung-Zuordnung wurde getauscht auf
+> **`dev`-Branch → `dev`, `int`** und **`main`-Branch → `test`, `prod`** (Reihenfolge dev → int → test → prod,
+> konsistent zum Parallelprojekt). Konkret: GitHub-Environment-Deployment-Branch von `int` `main`→`dev`,
+> von `test` `dev`→`main`. **Die Mapping-Angaben sowie die QA-/Code-Review-Belege weiter unten beschreiben
+> den ursprünglichen Stand vor dieser Korrektur** (sie werden aus Audit-Gründen nicht überschrieben).
+> Maßgeblich ist diese Korrektur. Siehe [BUG-0001](../../docs/bug/bug-0001-umgebungs-reihenfolge-int-test-vertauscht.md).
+
 ## Problem / Motivation
 Das Repository hat aktuell nur den Branch `main` (lokal + `origin/main`) und keine GitHub-Actions-Workflows. Die Roadmap nennt „GitHub-Actions-Deployment (dev/int/test/prod)" als P1, aber es fehlt eine verbindliche Festlegung, **aus welchem Branch welche Umgebung versorgt wird** und **wie der `main`-Branch (Quelle der produktiven Umgebung) gegen unkontrollierte Änderungen geschützt ist**.
 

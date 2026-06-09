@@ -2,7 +2,7 @@ name: DB - deploy
 
 # Schema-Objekte einer Umgebung idempotent ausrollen (ruft db/scripts/deploy.sh).
 # Manuell auslösbar. Branch->Umgebung nativ über die Environment-Deployment-Branches
-# (dev/test <- dev, int/prod <- main; siehe di2f-0002).
+# (dev/int <- dev, test/prod <- main; siehe di2f-0002).
 
 on:
   workflow_dispatch:
