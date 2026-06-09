@@ -37,7 +37,7 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P1 | Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) | Geplant | [di2f-0001](../features/di2f-0001-finalisierung-log-process.md) |
 | P1 | Test-Suite (`db/tests/`) | Geplant | — |
 | P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Geplant | [di2f-0004](../features/di2f-0004-github-actions-db-workflows-secrets.md) |
-| P1 | Git-Branch- & Deployment-Strategie (Branch→Umgebung, main-Schutz) | Geplant | [di2f-0002](../features/di2f-0002-git-branch-und-deploy-strategie.md) |
+| P1 | Git-Branch- & Deployment-Strategie (Branch→Umgebung, main-Schutz) | Deployed | [di2f-0002](../features/archive/di2f-0002-git-branch-und-deploy-strategie.md) |
 | P2 | Import/Export-File-Protokollierung (`ImportFile`/`ExportFile`) | Geplant | — |
 | P2 | HTML-Erfolgs-/Fehlerberichte (`spHTMLSuccess`/`spHTMLError`) | Geplant | — |
 | P2 | Erweiterte Monitoring-Views & Kennzahlen | Geplant | — |

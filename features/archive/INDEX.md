@@ -11,6 +11,6 @@
 
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
-| _– noch keine –_ | | | | |
+| di2f-0002 | Git-Branch- & Deployment-Strategie (dev/int/test/prod) | Deployed | [di2f-0002-git-branch-und-deploy-strategie.md](di2f-0002-git-branch-und-deploy-strategie.md) | 2026-06-09 |
 
 <!-- Add archived features above this line -->

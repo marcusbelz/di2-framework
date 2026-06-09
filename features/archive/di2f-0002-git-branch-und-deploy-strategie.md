@@ -1,7 +1,7 @@
 # di2f-0002: Git-Branch- & Deployment-Strategie (dev/int/test/prod)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed (Governance live auf GitHub; 2026-06-09)
 - **Schema(s):** — (Infrastruktur / CI-CD / Repo-Governance; kein DB-Schema betroffen)
 
 ## Problem / Motivation
@@ -22,7 +22,7 @@ Betroffene Artefakte (keine DB-Objekte):
 - **Branch `dev`** — neu, aus dem aktuellen `main`-HEAD erzeugt und nach `origin` gepusht; dauerhafter Integrations-/Arbeitsbranch.
 - **Branch `main`** — bleibt produktionsnaher Branch; erhält eine Branch-Protection-Regel.
 - **Branch-Protection-Regel auf `main`** — Direkt-Push gesperrt; Änderungen ausschließlich über Pull Request (Merge).
-- **GitHub-Actions-Deploy-Workflow** — manuell auslösbar (`workflow_dispatch`) mit Umgebungs-Parameter (`dev`/`int`/`test`/`prod`); enthält einen **Branch-Guard**, der die zulässige Branch→Umgebung-Zuordnung erzwingt.
+- **GitHub-Actions-Deploy-Workflow** — manuell auslösbar (`workflow_dispatch`) mit Umgebungs-Parameter (`dev`/`int`/`test`/`prod`). Der Branch→Umgebung-Guard wird **nativ** über die GitHub-Environment-Deployment-Branches erzwungen. **Hinweis:** Der Workflow selbst wird in **di2f-0004** gebaut; di2f-0002 liefert nur die Governance-Grundlage (Branches, Ruleset, Environments).
 - **Branch→Umgebung-Zuordnung** (verbindlich dokumentiert):
   | Branch | Umgebungen      |
   |--------|-----------------|
@@ -50,11 +50,11 @@ Keine (Execution/Component/Trace/Error unberührt — dieses Feature betrifft ni
 3. Ein direkter `git push` auf `main` (ohne PR) wird von GitHub abgelehnt.
 4. Ein Merge in `main` ist ausschließlich über einen Pull Request möglich.
 5. Direkter Push auf `dev` ist weiterhin erlaubt (kein Schutz auf `dev`).
-6. Es existiert ein GitHub-Actions-Deploy-Workflow, der **manuell** (über `workflow_dispatch`) mit einem Umgebungs-Parameter aus der Menge {`dev`, `int`, `test`, `prod`} gestartet werden kann.
+6. Es existiert ein GitHub-Actions-Deploy-Workflow, der **manuell** (über `workflow_dispatch`) mit einem Umgebungs-Parameter aus der Menge {`dev`, `int`, `test`, `prod`} gestartet werden kann. *(Realisiert in **di2f-0004** — der Workflow selbst gehört dort hin; di2f-0002 stellt nur die Environments bereit.)*
 7. Ein Deploy nach `dev` oder `test`, der von einem anderen Branch als `dev` ausgelöst wird, wird durch den Branch-Guard abgebrochen (fehlschlagender Job, kein Deployment).
 8. Ein Deploy nach `int` oder `prod`, der von einem anderen Branch als `main` ausgelöst wird, wird durch den Branch-Guard abgebrochen.
 9. `local` ist **nicht** als deploybare Umgebung im Workflow auswählbar.
-10. Jede der vier Umgebungen verwendet ihre eigenen Deploy-Secrets/Config (`db/config/<env>.env(.sql)`); ein Deploy zieht die Config der gewählten Umgebung.
+10. Jede der vier Umgebungen verwendet ihre eigenen Deploy-Secrets/Config (`db/config/<env>.env(.sql)`); ein Deploy zieht die Config der gewählten Umgebung. *(Secrets je Environment werden in **di2f-0004** angelegt; di2f-0002 liefert die Environments + die vorhandenen `db/config/<env>.env(.sql)`.)*
 
 ## Edge Cases
 - **Direkt-Push auf `main`** → abgelehnt; Nutzer muss einen PR öffnen.
