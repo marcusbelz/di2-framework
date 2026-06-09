@@ -19,7 +19,7 @@
 |----|---------|--------|------|----------|
 | di2f-0001 | Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) | Geplant | [di2f-0001-finalisierung-log-process.md](di2f-0001-finalisierung-log-process.md) | 2026-06-09 |
 | di2f-0003 | Bash-Runner für DB-Setup, Deploy & Teardown der 4 Schemas | In Arbeit | [di2f-0003-bash-runner-deploy-teardown.md](di2f-0003-bash-runner-deploy-teardown.md) | 2026-06-09 |
-| di2f-0004 | GitHub-Actions-DB-Workflows & Secrets (4 Umgebungen) | Geplant | [di2f-0004-github-actions-db-workflows-secrets.md](di2f-0004-github-actions-db-workflows-secrets.md) | 2026-06-09 |
+| di2f-0004 | GitHub-Actions-DB-Workflows & Secrets (4 Umgebungen) | In Arbeit | [di2f-0004-github-actions-db-workflows-secrets.md](di2f-0004-github-actions-db-workflows-secrets.md) | 2026-06-09 |
 
 <!-- Add features above this line -->
 

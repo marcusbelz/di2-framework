@@ -82,3 +82,63 @@ Keine direkte (siehe di2f-0003).
 - **Requires:** di2f-0002 (Branch→Umgebung-Zuordnung für die Branch-Auflösung).
 - Relates: PRD-Roadmap „GitHub-Actions-Deployment (dev/int/test/prod)" (P1).
 - Vorlage: `c:/sandbox/github/di2/.github/workflows/db-{deploy,clean,drop}.yml`.
+
+---
+
+## Tech Design (Solution Architect)
+
+> **Views nötig: Nein.** CI/CD-Automation, keine DB-Objekte, kein Datenmodell. Nach Freigabe folgt die Umsetzung über `/backend` (Workflow-YAMLs unter `.github/workflows/`), **kein** `/frontend`.
+
+### A) Einordnung
+di2f-0004 ist die **ausführende Schicht**: vier GitHub-Actions-Workflows, die per SSH auf den Hetzner-Server gehen und dort die in **di2f-0003** gebauten Bash-Runner aufrufen. Die **Governance** (Branches, `main`-Ruleset, die vier Environments mit Branch-Policy) liefert **di2f-0002** und ist bereits aktiv. di2f-0004 fügt nichts an der DB-Logik hinzu — es orchestriert nur.
+
+### B) Artefakt-Landschaft (flache Liste, keine Implementierung)
+- `.github/workflows/db-create.yml` — einmaliges Setup je Umgebung (ruft `create.sh`).
+- `.github/workflows/db-deploy.yml` — Schema-Objekte ausrollen (ruft `deploy.sh <schema> <env>`).
+- `.github/workflows/db-clean.yml` — Schema-Objekte entfernen (ruft `clean.sh`), mit Bestätigung.
+- `.github/workflows/db-drop.yml` — Datenbank droppen (ruft `drop.sh`), mit Bestätigung.
+- **GitHub-Environment-Secrets** je `dev`/`int`/`test`/`prod` (Werte; keine Repo-Dateien).
+- **Secret-Setup-Checkliste** (Doku/`gh`-Anleitung) — geführt, nach Freigabe.
+
+### C) „Datenmodell" (Klartext) — Inputs & Secret-Routing
+Kein DB-Datenmodell. Die relevanten „Daten" sind Workflow-Inputs und welches Secret an welchen Runner geht:
+
+| Workflow | Inputs | Ruft (auf Server) | Benötigte Secrets (zusätzl. zu SSH) |
+|----------|--------|-------------------|--------------------------------------|
+| db-create | `environment` | `create.sh <env>` | `DB_ADMIN_PASSWORD_POSTGRES`, `DB_OWNER_PASSWORD`, `DB_FW_PASSWORD`, `DB_SA_PASSWORD` |
+| db-deploy | `schema` (config/etl/helper/log/all), `environment` | `deploy.sh <schema> <env>` | `DB_FW_PASSWORD` |
+| db-clean | `schema`, `environment`, `confirm=clean` | `clean.sh <schema> <env>` | `DB_FW_PASSWORD` |
+| db-drop | `environment`, `confirm=drop` | `drop.sh <env>` | `DB_ADMIN_PASSWORD_POSTGRES` |
+
+SSH-Secrets für **alle**: `HETZNER_SSH_HOST`, `HETZNER_SSH_USER`, `HETZNER_SSH_PRIVATE_KEY`.
+
+### D) Schnittstellen (Klartext, nur Zweck)
+- Jeder Workflow: **`workflow_dispatch`** (manuell), Job läuft mit **`environment: <gewählte Umgebung>`** → zieht die Environment-Secrets **und** unterliegt der Deployment-Branch-Policy aus di2f-0002.
+- Destruktive Workflows (clean/drop): vorgelagerter **Guard-Job**, der die `confirm`-Eingabe prüft (`clean`/`drop`), sonst Abbruch vor jeder Aktion.
+- SSH-Step (`appleboy/ssh-action`): verbindet zum Hetzner-Host und führt im umgebungs-spezifischen Checkout den passenden `db/scripts/*.sh`-Aufruf aus.
+
+### E) Datenfluss & Branch-Durchsetzung
+1. User startet Workflow manuell, wählt Umgebung (und ggf. Schema/Bestätigung).
+2. **Native Branch-Sperre (di2f-0002):** GitHub lässt den Lauf nur zu, wenn er aus dem für die Umgebung erlaubten Branch kommt (`dev`/`test` ← `dev`, `int`/`prod` ← `main`) — sonst Abbruch **vor** dem Start. Es braucht **keinen** zusätzlichen Skript-Guard für die Branch-Regel.
+3. SSH zum Server; der umgebungs-Checkout wird auf den auslösenden Branch gebracht (`git fetch` + `git reset --hard origin/<github.ref_name>`) — der ist durch Schritt 2 garantiert der richtige.
+4. Der Bash-Runner (di2f-0003) läuft mit den als Umgebungsvariablen übergebenen Secrets; Erfolg/Fehler steht im Actions-Log.
+
+### F) Tech-Entscheidungen (für PM begründet)
+- **Workflows rufen die di2f-0003-Runner, statt SQL-Logik zu duplizieren:** eine einzige Quelle der Wahrheit; lokal (Docker) und in CI läuft exakt derselbe Code.
+- **Native Environment-Branch-Policy statt Skript-Guard** (aus di2f-0002): die Branch→Umgebung-Regel ist nicht umgehbar per YAML-Tippfehler und greift vor Job-Start.
+- **Bestätigungs-Guard nur für clean/drop:** destruktive Aktionen verlangen eine getippte Bestätigung — Schutz gegen Fehlklicks, ohne Routine-Deploys zu bremsen.
+- **Secrets je GitHub-Environment** (nicht repo-weit): saubere Trennung der Umgebungen; funktioniert bei gemeinsamem **und** getrenntem Hetzner-Host (Hosting noch offen).
+- **Least-Privilege-Routing:** db-deploy/clean bekommen nur `DB_FW_PASSWORD` (Schema-Owner), nur create/drop bekommen das Superuser-Passwort.
+
+### G) Geführte Secret-Anlage (nach Freigabe)
+Reproduzierbare Checkliste je Umgebung (`dev`/`int`/`test`/`prod`): die sieben Secrets als **Environment-Secrets** setzen — via GitHub-UI (Settings → Environments → Secrets) oder `gh secret set <NAME> --env <env>`. di2f-0004 liefert die Liste; der Assistent begleitet die Anlage Schritt für Schritt.
+
+### H) Offene Build-Zeit-Parameter (in `/backend` zu fixieren)
+- **Hetzner-Verzeichnislayout:** umgebungs-spezifischer Checkout-Pfad auf dem Server (z. B. `…/di2-framework/<env>`) — konkreter Basis-Pfad + SSH-User.
+- **SSH-Port** (di2-Vorlage nutzte 2121) — als Workflow-Konstante; abweichender Port je Umgebung dokumentieren.
+- **Hosting** (ein gemeinsamer Host vs. getrennte) — beeinflusst nur, ob die SSH-Secret-Werte je Umgebung identisch sind; das Design ist in beiden Fällen gleich.
+
+### I) Abhängigkeiten (Technik)
+- **Requires di2f-0003** (Runner) und **di2f-0002** (Environments/Branch-Policy, bereits live).
+- Hetzner-Host mit `psql`-Client + ausgecheckter Repo-Kopie je Umgebung; SSH-Zugang.
+- GitHub-Repo-Adminrechte für die Secret-Anlage.
