@@ -1,0 +1,65 @@
+name: DB - clean
+
+# Schema-Objekte einer Umgebung entfernen (ohne DB-Drop; ruft db/scripts/clean.sh).
+# Destruktiv -> verlangt getippte Bestätigung "clean". Manuell auslösbar.
+
+on:
+  workflow_dispatch:
+    inputs:
+      schema:
+        description: 'Schema'
+        required: true
+        default: 'all'
+        type: choice
+        options: [config, etl, helper, log, all]
+      environment:
+        description: 'Zielumgebung'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, int, test, prod]
+      confirm:
+        description: 'Zum Bestätigen exakt "clean" eingeben'
+        required: true
+
+jobs:
+  guard:
+    name: Bestätigung prüfen
+    runs-on: ubuntu-latest
+    env:
+      CONFIRM: ${{ github.event.inputs.confirm }}
+    steps:
+      - name: confirm == clean
+        run: |
+          if [ "$CONFIRM" != "clean" ]; then
+            echo "ERROR: Bestätigung muss exakt 'clean' sein (war: '$CONFIRM')."
+            exit 1
+          fi
+
+  clean:
+    name: Clean ${{ github.event.inputs.schema }} on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: guard
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: clean.sh via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DB_FW_PASSWORD: ${{ secrets.DB_FW_PASSWORD }}
+        with:
+          host: ${{ secrets.HETZNER_SSH_HOST }}
+          username: ${{ secrets.HETZNER_SSH_USER }}
+          key: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT || 2121 }}
+          envs: DB_FW_PASSWORD
+          script: |
+            set -e
+            if [ -z "${{ vars.DEPLOY_PATH }}" ]; then
+              echo "ERROR: Environment-Variable DEPLOY_PATH ist für '${{ github.event.inputs.environment }}' nicht gesetzt."
+              exit 1
+            fi
+            cd "${{ vars.DEPLOY_PATH }}"
+            git fetch origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            bash db/scripts/clean.sh "${{ github.event.inputs.schema }}" "${{ github.event.inputs.environment }}"

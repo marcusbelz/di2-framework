@@ -1,0 +1,59 @@
+name: DB - drop
+
+# Komplette Datenbank + Rollen einer Umgebung entfernen (ruft db/scripts/drop.sh).
+# Destruktiv -> verlangt getippte Bestätigung "drop". Manuell auslösbar.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Zielumgebung'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, int, test, prod]
+      confirm:
+        description: 'Zum Bestätigen exakt "drop" eingeben'
+        required: true
+
+jobs:
+  guard:
+    name: Bestätigung prüfen
+    runs-on: ubuntu-latest
+    env:
+      CONFIRM: ${{ github.event.inputs.confirm }}
+    steps:
+      - name: confirm == drop
+        run: |
+          if [ "$CONFIRM" != "drop" ]; then
+            echo "ERROR: Bestätigung muss exakt 'drop' sein (war: '$CONFIRM')."
+            exit 1
+          fi
+
+  drop:
+    name: Drop database on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: guard
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: drop.sh via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DB_ADMIN_PASSWORD_POSTGRES: ${{ secrets.DB_ADMIN_PASSWORD_POSTGRES }}
+        with:
+          host: ${{ secrets.HETZNER_SSH_HOST }}
+          username: ${{ secrets.HETZNER_SSH_USER }}
+          key: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT || 2121 }}
+          envs: DB_ADMIN_PASSWORD_POSTGRES
+          script: |
+            set -e
+            if [ -z "${{ vars.DEPLOY_PATH }}" ]; then
+              echo "ERROR: Environment-Variable DEPLOY_PATH ist für '${{ github.event.inputs.environment }}' nicht gesetzt."
+              exit 1
+            fi
+            cd "${{ vars.DEPLOY_PATH }}"
+            git fetch origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            bash db/scripts/drop.sh "${{ github.event.inputs.environment }}"

@@ -142,3 +142,24 @@ Reproduzierbare Checkliste je Umgebung (`dev`/`int`/`test`/`prod`): die sieben S
 - **Requires di2f-0003** (Runner) und **di2f-0002** (Environments/Branch-Policy, bereits live).
 - Hetzner-Host mit `psql`-Client + ausgecheckter Repo-Kopie je Umgebung; SSH-Zugang.
 - GitHub-Repo-Adminrechte für die Secret-Anlage.
+
+---
+
+## Backend-Umsetzung (Workflows & Schnittstellen)
+
+**Artefakte** (`.github/workflows/`): `db-create.yml`, `db-deploy.yml`, `db-clean.yml`, `db-drop.yml`, `README.md` (Setup-Checkliste).
+
+**Konfig-Entscheidung:** Nicht-sensible, server-/umgebungsspezifische Werte als **GitHub-Environment-Variablen** statt Hardcoding:
+- `DEPLOY_PATH` (Pflicht je Environment) — absoluter Repo-Checkout-Pfad auf dem Host.
+- `SSH_PORT` (optional, Default `2121`) — `${{ vars.SSH_PORT || 2121 }}`.
+
+**Workflow-Schnittstellen:** alle `workflow_dispatch`, Job mit `environment: <gewählt>`.
+- `db-create` (env) → `create.sh <env>`; Secrets: ADMIN/OWNER/FW/SA.
+- `db-deploy` (schema, env) → `deploy.sh <schema> <env>`; Secret: FW.
+- `db-clean` (schema, env, confirm=`clean`) → Guard-Job, dann `clean.sh`; Secret: FW.
+- `db-drop` (env, confirm=`drop`) → Guard-Job, dann `drop.sh`; Secret: ADMIN.
+- SSH-Step (`appleboy/ssh-action@v1.2.0`): `cd $DEPLOY_PATH` → `git fetch`/`reset --hard origin/<ref>` → Runner-Aufruf. DB-Passwörter via `envs:` in die Remote-Shell.
+
+**Security-Details:** `confirm` wird **nicht** in den Skript-String interpoliert, sondern über `env: CONFIRM` verglichen (kein Shell-Injection-Risiko); `schema`/`environment` sind `choice`-Inputs (eingeschränkt). Branch→Umgebung nativ über die di2f-0002-Environments (kein Skript-Guard). Leerer `DEPLOY_PATH` → klarer Abbruch.
+
+**Test-Stand:** YAML-Struktur + LF-Zeilenenden (`.gitattributes` `*.yml eol=lf`) geprüft (kein lokaler YAML-Parser/`act` verfügbar). **Live-Lauf steht aus** — erfordert gesetzte Secrets/Variablen je Environment, einen Hetzner-Host mit Repo-Checkout und einen Dispatch über GitHub Actions (GitHub validiert die Workflow-Syntax beim Push). Voll testbar zusammen mit der Secret-Anlage (Abschnitt G).
