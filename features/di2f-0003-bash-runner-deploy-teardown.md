@@ -143,4 +143,15 @@ Alle: `<env>` ∈ {local,dev,int,test,prod} (Default `local`); laden `db/config/
 
 **Entscheidung Clean-Strategie (Verbesserung ggü. Tech-Design F):** Statt `DROP SCHEMA CASCADE` + Grant-Reapply droppt `clean.schema.sql` nur die **Objekte** im Schema (Views/Tabellen/Routinen/Sequenzen per Introspektion), das **Schema bleibt**. Weil `deploy.sh` als `fw` verbindet und `08.create.role.rw.sql` Default Privileges `FOR ROLE :schema_owner` setzt, werden neu deployte Objekte **automatisch** an `:role_rw` granted → **kein** Grant-Reapply nötig, kein BUG-0335-Äquivalent.
 
-**Test-Stand:** Syntax (`bash -n`) ✓; Validierungspfade (unbekannt env/schema, Usage) ✓; Lade-Reihenfolge per Trockenlauf verifiziert (Sektionen + Nummern; `tf_` vor `tr_`) ✓. **Live-Smoke-Test (create→deploy→clean→idempotenz) gegen echtes PostgreSQL steht aus** — auf dem Host fehlt der `psql`-Client und es gibt keinen framework-eigenen PG-Container; auszuführen lokal oder über die dev-Umgebung (di2f-0004).
+**Test-Stand:** Syntax (`bash -n`) ✓; Validierungspfade (unbekannt env/schema, Usage) ✓; Lade-Reihenfolge per Trockenlauf ✓.
+
+**Live-Smoke-Test ✓ bestanden** (PostgreSQL 17.5 im isolierten `docker/`-Container `di2f_dev_postgres`, env `local`):
+- `create.sh local` → DB, 4 Schemas, Rollen, User, Grants angelegt.
+- `deploy.sh all local` → config (4 Tabellen) + log (7 Tabellen, `tf_set_modified`, 4 Trigger); helper/etl leer → übersprungen.
+- Verifikation: `role_rw` hat **automatisch** SELECT/INSERT auf log-Tabellen (Default Privileges beim fw-Deploy greifen), Objekt-Owner = `di2_local_fw`.
+- `deploy.sh all local` erneut → idempotent (exit 0).
+- `clean.sh log local` → log-Objekte entfernt, **Schema `log` bleibt** bestehen.
+- `deploy.sh log local` (re-deploy) → 7 Tabellen zurück, `role_rw` hat **weiterhin** INSERT-Recht → **kein Grant-Reapply nötig** (Kern-Designentscheidung bestätigt).
+- `drop.sh local` → Datenbank + Rollen entfernt.
+
+> **Setup-Hinweis (kein Bug der Runner):** Im `docker/`-Compose mountet `${GIT_REPO_PATH}:/di2` unter Windows wegen des Laufwerks-`C:` nach `/di2-framework` statt `/di2`. Die Runner sind davon unberührt (relative `SCRIPT_DIR`-Pfade). Für ein sauberes `/di2`-Ziel den Mount in `docker.di2f.yml` robuster notieren (z. B. long-syntax `type: bind`).
