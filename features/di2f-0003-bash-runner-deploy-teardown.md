@@ -69,3 +69,59 @@ Keine direkte (Execution/Component/Trace/Error unberührt). Die Skripte deployen
 - Relates: PRD-Roadmap „Deploy-/Teardown-Skripte (db/scripts/, Bash/Linux)" (P0).
 - Wird genutzt von: di2f-0004 (Workflows rufen diese Skripte über SSH auf).
 - Vorlage: `c:/sandbox/github/di2/db/scripts/{create,deploy,clean,drop}.sh`.
+
+---
+
+## Tech Design (Solution Architect)
+
+> **Views nötig: Nein.** Reine Tooling-Schicht (Bash-Runner), keine DB-Objekte, kein Datenmodell. Nach Freigabe folgt die Umsetzung über `/backend` (Skripte unter `db/scripts/`); danach **kein** `/frontend`.
+
+### A) Einordnung
+di2f-0003 liefert die **vier Bash-Runner**, die vorhandene SQL-Skripte (`db/database/…` + `db/schemas/…`) in der richtigen Reihenfolge an `psql` übergeben. Sie sind das lokale Fundament; di2f-0004 ruft genau diese Runner später per SSH aus den Workflows auf. Wichtige Abweichung zur `di2`-Vorlage: di2 nutzt ein kuratiertes `deploy.sql`/`deploy.full.sql` pro Schema — das Framework verzichtet bewusst darauf (CLAUDE.md), die **Verzeichnisstruktur + Nummerierung ist die einzige Wahrheit**, und der Runner lädt daraus.
+
+### B) Artefakt-Landschaft (flache Liste, keine Implementierung)
+- `db/scripts/create.sh` — orchestriert das einmalige Bootstrap (`db/database/01…10`).
+- `db/scripts/deploy.sh` — lädt die Objekte eines Schemas (oder `all`) sektionsweise.
+- `db/scripts/clean.sh` — entfernt die Objekte eines Schemas (oder `all`).
+- `db/scripts/drop.sh` — droppt die gesamte Datenbank (`db/database/99.drop.database.sql`).
+- (Optional, falls beim Bauen nötig: ein wiederverwendbarer Grant-Schritt — siehe F/Clean.)
+
+### C) Kern: Lade-Logik (das eigentliche „Wie viel WAS")
+**Sektions-Reihenfolge innerhalb eines Schemas** (fest, runner-getrieben):
+```
+tables → policies → functions → procedures → trigger → views → data
+```
+Innerhalb jeder Sektion: Dateien nach 3-stelligem Nummern-Prefix sortiert (`001.…`, `002.…`). Nur vorhandene Sektionsordner werden geladen (helper hat z. B. kein `tables/`).
+
+**Schema-Reihenfolge bei `all`** (eine zentrale, leicht änderbare Liste im Runner):
+```
+deploy:  helper → config → log → etl
+clean:   etl → log → config → helper   (exakt umgekehrt)
+```
+Begründung: `helper` ist fundamentlos (reine Funktionen) → zuerst; `etl` integriert Logging + Helper → zuletzt; `config`/`log` liegen dazwischen. **Aktuell gibt es keine Cross-Schema-Referenzen** (per `grep` geprüft) — die Reihenfolge ist also noch nicht hart erzwungen, aber zukunftssicher gewählt. Sie liegt an **genau einer Stelle** im Runner und ist anzupassen, sobald echte schemaübergreifende Abhängigkeiten entstehen.
+
+### D) Schnittstellen (Klartext, nur Zweck)
+- `create.sh <env>` — baut DB, Extensions, 4 Schemas, Rollen, User (verbindet als `postgres`).
+- `deploy.sh <schema> <env>` — rollt Objekte idempotent aus (`<schema>` = config|etl|helper|log|all).
+- `clean.sh <schema> <env>` — entfernt Schema-Objekte ohne DB-Drop.
+- `drop.sh <env>` — entfernt die ganze DB (verbindet als `postgres`).
+
+Alle: `<env>` ∈ {local,dev,int,test,prod} (Default `local`); laden `db/config/<env>.env` + übergeben `<env>.env.sql` an `psql`.
+
+### E) Verbindungs-Identitäten & Lebenszyklus
+- **Bootstrap (`create.sh`, `drop.sh`)** verbindet als **`postgres`-Superuser** — legt Rollen/DB an bzw. droppt sie (braucht `DB_ADMIN_PASSWORD_POSTGRES`).
+- **Objekt-Deploy/Clean (`deploy.sh`, `clean.sh`)** verbindet als **Schema-Owner `di2_<env>_fw`** (braucht `DB_FW_PASSWORD`) — so gehören erzeugte Objekte automatisch dem Framework-Owner (so vorgesehen in `db/config/<env>.env.sql`).
+- Typischer Lebenszyklus: `create` (1×) → `deploy all` (wiederholbar) → bei Bedarf `clean`/`deploy` → `drop` (Reset).
+
+### F) Tech-Entscheidungen (für PM begründet)
+- **Runner lädt aus der Verzeichnisstruktur statt aus `deploy.sql`:** kein doppelt gepflegtes Change-Log, keine Drift zwischen „Wahrheit" und „Skript". Neue Objekte erscheinen automatisch, sobald die Datei mit korrektem Nummern-Prefix im richtigen Sektionsordner liegt. (Bewusste Abweichung von `di2`.)
+- **`all`-Reihenfolge zentral, nicht verstreut:** eine einzige Liste bestimmt Deploy- und (gespiegelt) Clean-Reihenfolge → konsistent, an einer Stelle wartbar.
+- **Least-Privilege-Verbindung:** Bootstrap als Superuser, Routine-Deploy als Schema-Owner — kein Superuser für Alltags-Deploys.
+- **Idempotenz liegt in den Objekt-Skripten** (`CREATE OR REPLACE` / `IF NOT EXISTS`), nicht im Runner → Re-Deploy ist gefahrlos, der Runner bleibt dumm/robust (`set -e`).
+- **Clean-Strategie (Entscheidung, am Review zu bestätigen):** Empfehlung `DROP SCHEMA <schema> CASCADE` + Schema neu anlegen + **Grants des Bootstrap-Schritts erneut anwenden**. Das ist robuster und einfacher als das Einzel-Drop jedes Objekts (Signaturen!), zieht aber einen **Grant-Reapply-Schritt** nach sich (sonst verliert `:role_rw` den Zugriff). Alternative wäre objektweises Droppen unter Erhalt der Schema-Grants — fehleranfälliger. → in `/backend` final entscheiden.
+
+### G) Abhängigkeiten (Technik)
+- Setzt die vorhandenen `db/database/01…10` + `99.drop.database.sql` und `db/config/<env>.env(.sql)` voraus.
+- `deploy all` setzt voraus, dass `create.sh` bereits gelaufen ist (Schemas/Rollen existieren) — sonst klarer Abbruch.
+- Linux/Bash + `psql`-Client auf der ausführenden Maschine (Workflow-Runner bzw. Hetzner).
+- Wird vorausgesetzt von di2f-0004 (Workflows rufen die Runner).
