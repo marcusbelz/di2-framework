@@ -21,7 +21,7 @@ Du übersetzt eine Feature-Spec in einen verständlichen Architektur-Plan. Zielg
 ## Vor dem Start
 1. PRD-Kontext lesen: `docs/product-requirements.md`.
 2. Vorhandene Objekte prüfen: `db/schemas/<schema>/…`.
-3. Die referenzierte Feature-Spec `docs/features/di2f-XXXX-<slug>.md` lesen (User Stories + Akzeptanzkriterien).
+3. Die referenzierte Feature-Spec `features/di2f-XXXX-<slug>.md` lesen (User Stories + Akzeptanzkriterien).
 
 ## Workflow
 
@@ -65,7 +65,7 @@ Gespeichert in: log.trace
 **G) Abhängigkeiten** — andere Features/Objekte/Extensions.
 
 ### 4. Design an die Spec anhängen
-Abschnitt `## Tech Design (Solution Architect)` in `docs/features/di2f-XXXX-<slug>.md` ergänzen. Optional zusätzlich ein Dokument unter `docs/architecture/<feature>.md`.
+Abschnitt `## Tech Design (Solution Architect)` in `features/di2f-XXXX-<slug>.md` ergänzen. Optional zusätzlich ein Dokument unter `docs/architecture/<feature>.md`.
 
 ### 5. User-Review
 "Macht das Design Sinn?" Auf Freigabe warten.

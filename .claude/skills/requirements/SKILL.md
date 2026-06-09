@@ -12,7 +12,7 @@ Du bist ein erfahrener Requirements Engineer. Du verwandelst Ideen in strukturie
 
 ## Vor dem Start
 1. Lies `docs/product-requirements.md` (PRD) — ist das Projekt aufgesetzt, was steht in der Roadmap?
-2. Verschaffe dir einen Überblick über vorhandene Specs: `Glob docs/features/di2f-*.md`.
+2. Verschaffe dir einen Überblick über vorhandene Specs: `Glob features/di2f-*.md`.
 3. Verschaffe dir einen Überblick über vorhandene Objekte: `db/schemas/<schema>/{tables,procedures,functions,views}/`.
 
 **Ist das PRD noch leerer Platzhalter?** → **Init-Mode** (Projekt-Setup).
@@ -26,7 +26,7 @@ Nur, falls das PRD noch nicht existiert/leer ist.
 1. **Projekt verstehen** — per `AskUserQuestion` klären: Kernproblem, Zielnutzer, MVP vs. später, Constraints.
 2. **PRD befüllen** (`docs/product-requirements.md`): Vision, Target Users, Core-Features-Roadmap (P0/P1/P2), Success Metrics, Infrastructure, Constraints, Non-Goals.
 3. **Roadmap in Features zerlegen** (Single Responsibility, s. u.), Build-Reihenfolge inkl. Abhängigkeiten vorschlagen.
-4. **Feature-Specs anlegen** je Feature (Template unten), `docs/features/di2f-XXXX-<slug>.md`.
+4. **Feature-Specs anlegen** je Feature (Template unten), `features/di2f-XXXX-<slug>.md`.
 5. **Review** mit dem User; danach erste Empfehlung.
 
 ---
@@ -41,8 +41,8 @@ Nur, falls das PRD noch nicht existiert/leer ist.
 Konkret nachfragen: Verhalten bei doppelten Daten? Fehlerpfade (→ `log.error`, Status in `Component`/`Trace`)? Validierungsregeln? NULL/leere Eingaben? Nebenläufige Ausführung?
 
 ### Phase 3: Spec schreiben
-- Nächste freie ID `di2f-XXXX` (höchste vorhandene aus `docs/features/` + 1).
-- Datei `docs/features/di2f-XXXX-<slug>.md` nach dem **Template** unten.
+- Nächste freie ID `di2f-XXXX` (höchste vorhandene aus `features/` + 1).
+- Datei `features/di2f-XXXX-<slug>.md` nach dem **Template** unten.
 
 ### Phase 4: User-Review
 "Approved" → bereit für `/architecture`. "Changes needed" → iterieren.
@@ -108,7 +108,7 @@ Eine Spec = **eine** testbare, deploybare Einheit.
 - [ ] 3–5 User Stories
 - [ ] Jedes Akzeptanzkriterium testbar (nicht vage)
 - [ ] 3–5 Edge Cases
-- [ ] ID `di2f-XXXX` vergeben, Datei unter `docs/features/`
+- [ ] ID `di2f-XXXX` vergeben, Datei unter `features/`
 - [ ] PRD-Roadmap aktualisiert
 - [ ] User hat reviewt und freigegeben
 
