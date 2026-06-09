@@ -27,9 +27,9 @@ DB-Framework (keine UI).
    - Noch leerer Platzhalter? → Projekt nicht initialisiert (Init-Mode via `/requirements`).
    - Befüllt (bei uns: ja)? → Roadmap-Tabelle gibt Status + Links auf Feature-Specs.
 
-2. **Feature-Specs auflisten:** `Glob features/di2f-*.md` (es gibt **kein** `INDEX.md`;
-   die Tracking-Quelle ist die **Roadmap-Tabelle im PRD** plus der `**Status:**`-Header
-   jeder Spec).
+2. **Feature-Index lesen:** `features/INDEX.md` (aktive Features: Geplant / In Arbeit /
+   In Review / Abgelöst) und `features/archive/INDEX.md` (Deployed). Das ist die primäre
+   Tracking-Quelle; ergänzend die Roadmap-Tabelle im PRD und der `**Status:**`-Header je Spec.
 
 3. **Pro Feature-Spec prüfen**, welche Abschnitte schon existieren (markiert die Workflow-Stufe):
    - `## Tech Design (Solution Architect)` → von `/architecture`; enthält die Zeile **„Views nötig: Ja/Nein"**.
@@ -123,7 +123,7 @@ Antworte mit dieser Struktur:
 _Kurzer Überblick, wo das Projekt steht._
 
 ### Feature-Übersicht
-_Tabelle der Features + aktueller Status (aus PRD-Roadmap + `features/di2f-*.md`)._
+_Tabelle der Features + aktueller Status (aus `features/INDEX.md` + `features/archive/INDEX.md`)._
 
 ### Empfohlener nächster Schritt
 _Das eine Wichtigste, mit dem exakten Befehl._
