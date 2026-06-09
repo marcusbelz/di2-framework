@@ -70,3 +70,62 @@ Keine (Execution/Component/Trace/Error unberührt — dieses Feature betrifft ni
 - Relates: Roadmap-Eintrag „GitHub-Actions-Deployment (dev/int/test/prod)" (P1) und Skill `/deploy`.
 - Nutzt: bestehende Umgebungs-Configs `db/config/<env>.env` / `<env>.env.sql` und die Bash-Runner unter `db/scripts/`.
 - Keine Abhängigkeit zu di2f-0001 (log.process).
+
+---
+
+## Tech Design (Solution Architect)
+
+> **Views nötig: Nein.** Dieses Feature betrifft keine DB-Objekte, keine Views, kein Datenmodell. Es ist reine **Repository- und CI/CD-Governance** (Git-Branches, GitHub-Schutzregeln, GitHub-Environments). Nach Freigabe folgt **kein** `/backend`/`/frontend`, sondern eine direkte Repo-/GitHub-Einrichtung (siehe Abschnitt „Umsetzungs-Schritte").
+
+### A) Einordnung
+di2f-0002 legt das **Regelwerk** fest: welche Branches es gibt, welcher Branch welche Umgebung speist und wie `main` geschützt ist. Die **eigentlichen Deploy-Workflows** (`db-create/deploy/clean/drop`) baut di2f-0004 und bindet dabei genau diese Regeln ein. di2f-0002 ist damit die Governance-Schicht, di2f-0004 die ausführende Schicht.
+
+### B) Artefakt-Landschaft (flache Liste, keine Implementierung)
+- **Branch `dev`** — neuer dauerhafter Arbeits-/Integrationsbranch, aus aktuellem `main`-HEAD; speist die Umgebungen `dev` + `test`.
+- **Branch `main`** — bleibt Default- und Produktionsbranch; speist `int` + `prod`; geschützt.
+- **Repository Ruleset „protect-main"** — erzwingt PR-only auf `main` (kein Direkt-Push, kein Force-Push, kein Löschen).
+- **GitHub Environment `dev`** — Deployment-Branch-Regel: nur `dev`.
+- **GitHub Environment `test`** — Deployment-Branch-Regel: nur `dev`.
+- **GitHub Environment `int`** — Deployment-Branch-Regel: nur `main`.
+- **GitHub Environment `prod`** — Deployment-Branch-Regel: nur `main`.
+- **Secrets je Environment** — SSH- + DB-Zugang pro Umgebung (Detail-Liste in di2f-0004).
+
+### C) „Datenmodell" (Klartext) — die Branch→Umgebung-Matrix
+Es gibt kein DB-Datenmodell. Die einzige persistente Regel ist die Zuordnung:
+
+| Branch | versorgt Umgebungen | Schutz                         |
+|--------|---------------------|--------------------------------|
+| `dev`  | `dev`, `test`       | offen (Direkt-Push erlaubt)    |
+| `main` | `int`, `prod`       | geschützt (nur via Pull Request)|
+
+`local` ist keine deploybare GitHub-Umgebung (reine Entwickler-Maschine).
+
+### D) „Schnittstellen" (Klartext, nur Zweck)
+- **Deploy-Auslösung** (von di2f-0004 bereitgestellt): manueller `workflow_dispatch` mit Umgebungs-Auswahl. Der Auslöser wählt die Zielumgebung; das Regelwerk entscheidet, ob die ausgewählte Quell-Branch zulässig ist.
+- **Schutz-Schnittstelle** `main`: Schreibzugriff auf `main` ausschließlich über einen gemergten Pull Request.
+
+### E) Datenfluss & Durchsetzung (Kern dieses Features)
+1. Entwickler arbeitet auf `dev`, pusht direkt (offen).
+2. Deploy nach `dev`/`test`: Workflow läuft mit GitHub-Environment `dev`/`test`. Da deren **Deployment-Branch-Regel** nur `dev` zulässt, akzeptiert GitHub den Job **nur**, wenn er aus `dev` läuft — andernfalls wird der Job **vor** dem Start blockiert (kein Skript-Exit nötig).
+3. Freigabe nach `int`/`prod`: Code muss zuerst per **Pull Request** nach `main` (Ruleset erzwingt das). Deploy nach `int`/`prod` läuft mit Environment `int`/`prod`, deren Deployment-Branch-Regel nur `main` zulässt → Versorgung garantiert aus `main`.
+4. Ergebnis: Eine Umgebung kann **technisch nicht** aus dem falschen Branch versorgt werden — die Sperre liegt in GitHub selbst, nicht in fehleranfälliger YAML-Logik.
+
+> **Hinweis zu Akzeptanzkriterien 7/8:** „Deploy aus falscher Branch wird abgebrochen" wird durch die **GitHub-Environment-Deployment-Branch-Regel** erfüllt (GitHub verweigert den Lauf), nicht durch einen `exit 1`-Skript-Guard. Wirkung identisch — kein Deployment aus der falschen Branch —, aber robuster und früher.
+
+### F) Tech-Entscheidungen (für PM begründet)
+- **GitHub-Environment-Deployment-Branches statt Skript-Guard:** Die Sperre ist nativ in GitHub konfiguriert und greift, bevor überhaupt ein Job startet. Sie kann nicht durch einen Tippfehler im Workflow-YAML umgangen werden und gilt automatisch für **jeden** Workflow, der diese Environments nutzt (auch zukünftige). Weniger Logik, weniger Fehlerquellen.
+- **Repository Ruleset statt klassischer Branch-Protection:** Rulesets sind GitHubs aktueller, zukunftssicherer Mechanismus; sie bündeln PR-Pflicht, Force-Push-Sperre und Lösch-Schutz in einem benannten, versions-/auditierbaren Regelsatz und lassen sich später ohne Bruch um Review-Pflicht/Status-Checks erweitern (bewusst noch nicht in dieser Iteration).
+- **`dev` bewusst ungeschützt:** schnelles Iterieren ohne PR-Overhead; das Risiko ist gering, weil produktionsrelevanter Code erst über den geschützten `main`-PR-Pfad nach int/prod gelangt.
+- **Deployment manuell (`workflow_dispatch`):** bewusste Kontrolle über Zeitpunkt und Promotion; kein Auto-Deploy bei Push/Merge.
+
+### G) Umsetzungs-Schritte (nach Freigabe; kein DB-`/backend`)
+Reihenfolge der konkreten Einrichtung (ausführbar via `git` + `gh`/GitHub-UI):
+1. Branch `dev` aus `main` erzeugen und nach `origin` pushen.
+2. Repository Ruleset „protect-main" auf `main` anlegen (PR-Pflicht, Force-Push-Sperre, Lösch-Schutz).
+3. Vier GitHub-Environments `dev`/`test`/`int`/`prod` anlegen, je mit Deployment-Branch-Regel (`dev`→dev, `test`→dev, `int`→main, `prod`→main).
+4. (Secrets je Environment → di2f-0004.)
+
+### H) Abhängigkeiten (Technik)
+- **GitHub-Repo-Adminrechte** für Ruleset + Environments nötig.
+- Wird vorausgesetzt von di2f-0004 (Workflows binden diese Environments ein).
+- Keine DB-/Extension-Abhängigkeit.
