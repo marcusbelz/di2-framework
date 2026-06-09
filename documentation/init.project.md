@@ -149,6 +149,12 @@ jeweils adaptiert):
   `004 trace`, `005 error`, `006 import_file`, `007 export_file` (Trigger analog). Der FK steht damit
   **inline** in `execution` (alle FKs zeigen nun auf niedrigere Nummern).
 
+### 15 · Erste Feature-Spec (di2f-0001) via /requirements (2026-06-09)
+- `docs/features/di2f-0001-finalisierung-log-process.md` erstellt: Finalisierung `log.process`
+  (Insert/Update/Delete-Prozeduren, Seed-Daten, Testskript). Geklärt: `name` UNIQUE; Delete weist
+  referenzierte Prozesse mit Vorab-Check ab; Audit über `current_user`/Trigger; schlanke
+  Protokollierung (nur `RAISE`). 12 Akzeptanzkriterien. PRD-Roadmap verlinkt.
+
 ## Erstellte Artefakte (Stand 2026-06-09)
 
 ```

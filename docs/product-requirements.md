@@ -34,6 +34,7 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
 | P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
 | P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
+| P1 | Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) | Geplant | [di2f-0001](features/di2f-0001-finalisierung-log-process.md) |
 | P1 | Test-Suite (`db/tests/`) | Geplant | — |
 | P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Geplant | — |
 | P2 | Import/Export-File-Protokollierung (`ImportFile`/`ExportFile`) | Geplant | — |
