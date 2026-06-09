@@ -129,3 +129,36 @@ Reihenfolge der konkreten Einrichtung (ausführbar via `git` + `gh`/GitHub-UI):
 - **GitHub-Repo-Adminrechte** für Ruleset + Environments nötig.
 - Wird vorausgesetzt von di2f-0004 (Workflows binden diese Environments ein).
 - Keine DB-/Extension-Abhängigkeit.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-09 · **Art:** GitHub-Konfiguration (keine DB-Objekte → keine `db/tests/`-Skripte). Verifikation **repo-seitig** (git) und über die **GitHub REST API** (Repo ist public, unauth. Lesezugriff möglich): `rulesets`, `rulesets/{id}`, `environments`, `environments/{env}/deployment-branch-policies`.
+
+### Akzeptanzkriterien
+
+| # | Kriterium | Ergebnis | Beleg |
+|---|-----------|----------|-------|
+| 1 | `dev` auf origin, HEAD = main-HEAD bei Erstellung | ✅ bestanden | dev aus `main` (beide initial `40a0893`); inzwischen erwartet divergiert (Edge Case) |
+| 2 | `main` existiert, Default/Prod-Branch | ✅ bestanden | `origin` HEAD branch = `main` |
+| 3 | Direkt-Push auf `main` abgelehnt (PR-only) | ✅ bestanden | Ruleset `protect-main` (active), Regel `pull_request` auf `~DEFAULT_BRANCH` |
+| 4 | Merge in `main` nur via PR | ✅ bestanden | PR #1 gemergt (`36d4d13`); Ruleset erzwingt PR |
+| 5 | Direkt-Push auf `dev` erlaubt (kein Schutz) | ✅ bestanden | Mehrere Pushes auf `dev`; kein Ruleset auf `dev` |
+| 6 | Manueller Deploy-Workflow (`workflow_dispatch`, env-Param) existiert | ⏸ verschoben | Workflows sind **di2f-0004** (`.github/workflows/` noch nicht vorhanden) |
+| 7 | Deploy dev/test nur aus `dev` | ✅ konfiguriert | Env `dev`→Branch-Policy `dev`, Env `test`→`dev` (Laufzeit-Effekt mit di2f-0004) |
+| 8 | Deploy int/prod nur aus `main` | ✅ konfiguriert | Env `int`→`main`, Env `prod`→`main` |
+| 9 | `local` nicht als Umgebung wählbar | ✅ bestanden | Nur 4 Environments: dev/int/test/prod (kein local) |
+| 10 | Jede Umgebung eigene Secrets/Config | ⏸ teilweise | `db/config/<env>.env(.sql)` vorhanden; **Secrets je Environment = di2f-0004** |
+
+**Edge Cases:** Direkt-Push main → durch Ruleset-`pull_request` abgelehnt (config-verifiziert; kein Live-Push-Test, um den geschützten Branch nicht zu touchen). Deploy aus falschem Branch → durch Env-Branch-Policies unterbunden (config-verifiziert; Laufzeit mit di2f-0004). Force-Push `dev` erlaubt (kein Ruleset); Force-Push `main` durch Regel `non_fast_forward` blockiert; `main`-Löschen durch `deletion`-Regel blockiert.
+
+### Feature-spezifische Security-Funde
+- **Niedrig/Info:** Alle vier Environments haben `can_admins_bypass: true` — ein Repo-Admin könnte die Deployment-Branch-Policy umgehen (z. B. `prod` aus `dev` deployen). Konsistent mit dem bewusst schlanken Scope dieser Iteration (nur „PR statt Direkt-Push" gewählt, Admin-Enforcement nicht). Bei Bedarf später härten.
+- Das Ruleset `protect-main` hat **keine** Bypass-Actor-Liste → gilt auch für Admins (Direkt-Push/Force-Push/Löschen von `main` für alle gesperrt). ✅
+
+### Kandidaten für nächsten `/security`-Run
+- Branch-/Umgebungs-Schutz projektweit bewerten: Admin-Bypass der Environments, optional Review-Pflicht/Status-Checks auf `main` (in dieser Iteration bewusst aus), Secret-Scoping (mit di2f-0004).
+
+### Production-Ready-Entscheidung
+**READY (für die Governance-Schicht).** Keine Critical/High. Die Branch-/Schutz-/Environment-Konfiguration ist korrekt und verifiziert. AC 6 und AC 10 sind **kein Fehler**, sondern liegen per Architektur-Split in **di2f-0004** (Workflows + Secrets) — die volle Laufzeit-Durchsetzung der Branch→Umgebung-Regel ist erst mit den Workflows aus di2f-0004 end-to-end testbar.
