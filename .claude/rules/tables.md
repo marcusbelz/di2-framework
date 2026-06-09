@@ -21,6 +21,14 @@
     intern identisch zu `text` (gleiche Speicherung/Performance); `varchar(n)` erzwingt zusätzlich
     eine Längenprüfung. Unbegrenzte Felder: `varchar` **ohne** Länge.
   - Audit-Spalten `created_by` / `modified_by` immer **`varchar(100)`**.
+- **Audit-Spalten-Konvention (Default & Nullability):**
+  - `created_on timestamptz NOT NULL DEFAULT now()`
+  - `created_by varchar(100) NOT NULL DEFAULT current_user`
+  - `modified_on timestamptz NULL` (kein Default)
+  - `modified_by varchar(100) NULL` (kein Default)
+  - `modified_on` / `modified_by` werden **nicht** per Default gesetzt, sondern bei jedem `UPDATE`
+    durch den `BEFORE UPDATE`-Trigger `log.tf_set_modified()` (→ `now()` / `current_user`). Jede
+    Tabelle mit `modified_*`-Spalten bekommt einen `tr_u_<tabelle>`-Trigger, der diese Funktion ruft.
 - **RLS** auf sensiblen Tabellen aktivieren (v. a. `log.*`); Policies → [policies.md](policies.md).
 - **Audit-Spalten:** die sql.md-Variante `created_by`/`modified_by` = E-Mail des App-Users ist
   app-geprägt — für Framework-Tabellen nur dort, wo fachlich sinnvoll (z. B. `config`).

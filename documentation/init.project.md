@@ -136,6 +136,19 @@ jeweils adaptiert):
 - Ablageort der Regeln geklärt: **Datentyp-/Spalten-Design-Regeln gehören in `tables.md`** (dort
   maßgeblich); `sql.md` (Code-/Stil-Styleguide) verweist nur darauf, statt sie selbst festzuschreiben.
 
+### 14 · Tabelle log.process + Update-Trigger (2026-06-09)
+- Neue Tabelle `db/schemas/log/tables/001.process.sql` (`id bigserial`, `name varchar(100)`,
+  Audit-Spalten).
+- Audit-Default-/Nullability-Konvention in `tables.md` verankert: `created_on`/`created_by` mit
+  Default `now()` / `current_user` (NOT NULL); `modified_on`/`modified_by` ohne Default (NULL).
+- Generische `BEFORE UPDATE`-Trigger-Funktion `log.tf_set_modified()` (setzt `modified_on = now()`,
+  `modified_by = current_user`) unter `db/schemas/log/trigger/000.tf_set_modified.sql`; Trigger
+  `tr_u_{process,execution,component,trace}` für alle log-Tabellen mit `modified_*`-Spalten.
+- FK `execution.process_id` → `process(id)` ergänzt. Dafür die log-Tabellen in **topologische
+  Lade-Reihenfolge** umnummeriert (Eltern vor Kind): `001 process`, `002 execution`, `003 component`,
+  `004 trace`, `005 error`, `006 import_file`, `007 export_file` (Trigger analog). Der FK steht damit
+  **inline** in `execution` (alle FKs zeigen nun auf niedrigere Nummern).
+
 ## Erstellte Artefakte (Stand 2026-06-09)
 
 ```

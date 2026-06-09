@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.execution
    ,modified_on     timestamptz        NULL
    ,modified_by     varchar(100)       NULL
 
-   ,CONSTRAINT pk_execution  PRIMARY KEY (id)
+   ,CONSTRAINT pk_execution             PRIMARY KEY (id)
+
+   ,CONSTRAINT fk_execution_process_id  FOREIGN KEY (process_id) REFERENCES :schema_log.process(id)
 );
 ALTER TABLE :schema_log.execution OWNER TO :schema_owner;
 COMMENT ON TABLE :schema_log.execution IS 'Protokollierung je Prozessausfuehrung (Prozessebene).';
