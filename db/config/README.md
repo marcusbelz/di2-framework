@@ -28,7 +28,7 @@ DB_NAME=di2_dev
 
 | Variable | Beschreibung |
 |----------|--------------|
-| `DB_HOST` | PostgreSQL-Host (Hetzner-Hosts: `<hetzner-host>` eintragen) |
+| `DB_HOST` | PostgreSQL-Host. Alle Umgebungen (`dev`/`int`/`test`/`prod`) laufen auf dem Hetzner-Host mit lokalem Postgres → `localhost`; `local` ist die lokale Entwicklungsmaschine (ebenfalls `localhost`) |
 | `DB_PORT` | PostgreSQL-Port |
 | `DB_USER` | Verbindungs-User (Bootstrap: Superuser `postgres`) |
 | `DB_NAME` | Ziel-Datenbank (`di2_<env>`) |
