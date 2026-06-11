@@ -519,7 +519,12 @@ der Signatur-Fix konsistent. Nächster Schritt: `/deploy dev`.
 |-----|-------|--------|----------|----------|
 | dev | 2026-06-11 | `d6d6ad1` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün |
 | dev | 2026-06-11 | `25cf522` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün — Re-Deploy nach Konventions-Umbau |
+| int | 2026-06-12 | `c50260a` | „DB - deploy" (schema=all, env=int, Branch dev) | ✅ grün |
+| test | 2026-06-12 | `c50260a` | „DB - deploy" (schema=all, env=test, Branch dev) | ✅ grün |
 
+- **Promotion int + test `c50260a` (2026-06-12):** identischer Stand wie dev (Branch `dev`), nach
+  int (interner Demo-Stand) und test (Pre-Prod) ausgerollt; beide Workflows grün. Nächstes Gate vor
+  prod: `/security` (Audit muss aktuell + grün sein).
 - **Re-Deploy `25cf522` (2026-06-11):** rollt den Konventions-Umbau (`a82eeb4`) + Signatur-Fix
   (`2c5dcdd`, `sp_ins_process` jetzt `(INOUT p_id, IN p_name)`) nach dev — der vorige Deploy
   (`d6d6ad1`/`4a729dd`) lag noch davor, die dev-DB trug bis hier die alte Signatur. Workflow grün →
