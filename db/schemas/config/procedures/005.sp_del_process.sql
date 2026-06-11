@@ -49,7 +49,7 @@ BEGIN
          l_error_code    := 'invalid_parameter_value';
 
          RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
-         
+
       END IF;
    END;
 
@@ -90,7 +90,7 @@ BEGIN
       BEGIN
 
          DELETE FROM config.process
-         WHERE  
+         WHERE
             id = p_id;
 
       EXCEPTION WHEN foreign_key_violation THEN

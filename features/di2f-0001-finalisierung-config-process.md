@@ -246,7 +246,7 @@ die Stammdaten-/Infrastruktur sich selbst protokollieren (zirkulär). Fehler wer
 > bleibt 1.
 
 ### Implementierte Schnittstellen
-- `config.sp_ins_process(IN p_name varchar, INOUT p_id bigint)` — legt Prozess an, liefert neue `id`
+- `config.sp_ins_process(INOUT p_id bigint, IN p_name varchar)` — legt Prozess an, liefert neue `id`
   über `INOUT p_id`. Fehler: `invalid_parameter_value` (Name NULL/leer), `unique_violation`
   (Name existiert).
 - `config.sp_upd_process(IN p_id bigint, IN p_name varchar)` — benennt um; identischer Name = No-op.

@@ -6,7 +6,7 @@ DROP PROCEDURE IF EXISTS :schema_config.sp_ins_process(bigint, varchar);
 -- Parameter
 -- --------------------------------------------------------------------------------
 --    p_id          bigint
---       process-id assigned to the newly inserted process (OUT)
+--       process-id assigned to the newly inserted process (INOUT, returned to caller)
 --    p_name        varchar
 --       name of the process to be inserted
 -- --------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ BEGIN
       l_error_code    := 'unique_violation';
 
       RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
-      
+
    END;
 
 END;
