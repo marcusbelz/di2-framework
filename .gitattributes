@@ -7,3 +7,7 @@
 *.env  text eol=lf
 *.yml  text eol=lf
 *.yaml text eol=lf
+
+# CI-Lint-Konfig (di2f-0005) — ohne Endung, daher explizit.
+.sqlfluff     text eol=lf
+.shellcheckrc text eol=lf

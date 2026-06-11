@@ -2,7 +2,7 @@
 
 -- Generische BEFORE-UPDATE-Trigger-Funktion: setzt die Audit-Spalten bei jeder
 -- Änderung. Wird von allen log-Tabellen mit modified_on/modified_by genutzt
--- (execution, component, trace, process). Kein DROP FUNCTION (Trigger-safe).
+-- (execution, component, trace). Kein DROP FUNCTION (Trigger-safe).
 CREATE OR REPLACE FUNCTION :schema_log.tf_set_modified()
 RETURNS TRIGGER
 LANGUAGE plpgsql

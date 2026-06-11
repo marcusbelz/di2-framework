@@ -27,17 +27,17 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P0 (MVP) | Trace-Protokollierung (Insert beim Start, Update mit Status) | Geplant | — |
 | P0 (MVP) | Fehlerprotokollierung `Error` (Datenfehler) | Geplant | — |
 | P0 (MVP) | Schema `config` — `Configuration`-Tabelle + Lese-/Schreibfunktionen | Geplant | — |
-| P0 (MVP) | Deploy-/Teardown-Skripte (`db/scripts/`, Bash/Linux) | Geplant | [di2f-0003](../features/di2f-0003-bash-runner-deploy-teardown.md) |
+| P0 (MVP) | Deploy-/Teardown-Skripte (`db/scripts/`, Bash/Linux) | Deployed | [di2f-0003](../features/archive/di2f-0003-bash-runner-deploy-teardown.md) |
 | P1 | Schema `etl` — generische Dynamic-SQL-Prozeduren | Geplant | — |
 | P1 | Schema `helper` — Konvertierungsfunktionen (`fnConvert*`) | Geplant | — |
 | P1 | Konfigurations-Stammdaten (`config/data/`) | Geplant | — |
 | P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
 | P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
 | P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
-| P1 | Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) | Geplant | [di2f-0001](../features/di2f-0001-finalisierung-log-process.md) |
+| P1 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | In Review | [di2f-0001](../features/di2f-0001-finalisierung-config-process.md) |
 | P1 | Test-Suite (`db/tests/`) | Geplant | — |
 | P1 | DB-CI — Dry-Run-Deploy + Lint (GitHub Actions, Required-Gate) | Geplant | [di2f-0005](../features/di2f-0005-db-ci-dry-run-deploy-lint.md) |
-| P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Geplant | [di2f-0004](../features/di2f-0004-github-actions-db-workflows-secrets.md) |
+| P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Deployed | [di2f-0004](../features/archive/di2f-0004-github-actions-db-workflows-secrets.md) |
 | P1 | Git-Branch- & Deployment-Strategie (Branch→Umgebung, main-Schutz) | Deployed | [di2f-0002](../features/archive/di2f-0002-git-branch-und-deploy-strategie.md) |
 | P2 | Import/Export-File-Protokollierung (`ImportFile`/`ExportFile`) | Geplant | — |
 | P2 | HTML-Erfolgs-/Fehlerberichte (`spHTMLSuccess`/`spHTMLError`) | Geplant | — |

@@ -52,6 +52,30 @@ fi
 
 echo "--- creating database: env $ENV ($DB_NAME) ---"
 
+# Preflight: Bootstrap ist drop-and-recreate (siehe CLAUDE.md). Rollen sind
+# cluster-global und ueberleben ein DROP DATABASE -> ein zweiter create.sh-Lauf
+# ohne vorheriges drop.sh braeche sonst in Step 1 mit "role already exists" (42710)
+# ab. Hier vorab ein klarer Hinweis statt des rohen psql-Fehlers. Exit-Code 3 =
+# DB/Rollen existieren (RAISE unter ON_ERROR_STOP); 1/2 = echter Verbindungsfehler.
+echo ">>> preflight: bestehende Datenbank / Rollen pruefen"
+rc=0
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres \
+  -v ON_ERROR_STOP=1 -X \
+  -f "$ENV_SQL" \
+  -f "$DB_DIR/00.preflight.create.sql" >/dev/null || rc=$?
+if [ "$rc" -eq 3 ]; then
+  echo
+  echo "Error: Datenbank oder Rollen fuer env '$ENV' existieren bereits."
+  echo "       Das Bootstrap-Setup ist drop-and-recreate (nicht idempotent)."
+  echo "       Erst aufraeumen, dann neu anlegen:"
+  echo "         bash db/scripts/drop.sh $ENV"
+  echo "         bash db/scripts/create.sh $ENV"
+  exit 1
+elif [ "$rc" -ne 0 ]; then
+  echo "Error: preflight psql failed (exit $rc) — Verbindung/Setup pruefen."
+  exit "$rc"
+fi
+
 # Step 1: Datenbank + Owner-Rolle (gegen Maintenance-DB 'postgres')
 echo ">>> step 1: database + owner"
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres \

@@ -95,9 +95,14 @@ Quer dazu (jederzeit triggerbar, kein fester Schritt):
 
 ## Konventions-Regeln (Rules)
 
-- **`.claude/rules/sql.md` ist der maßgebliche SQL-Styleguide** (Naming `sp_`/`fn_`/`tf_`/`tr_`/`vw_`, snake_case/singular, PK `id bigserial`, Timestamps `_on`, tabellarisches Alignment, Dollar-Quoting, `format()`-Fehlermeldungen, Body-Struktur „Get name / Check parameter / Workload", Trigger-Konventionen). **Bei Widerspruch gilt sql.md.**
-- Objekt-Regeln `tables.md`, `procedures.md`, `functions.md`, `views.md`, `policies.md`, `trigger.md` verweisen auf `sql.md` und ergänzen nur framework-spezifische Punkte (Ablageort, Idempotenz, Protokollierungs-Integration, RLS).
-- `/backend`, `/frontend`, `/review` lesen zuerst `sql.md`.
+- **`.claude/rules/sql.md` ist der maßgebliche *übergreifende* SQL-Styleguide** (Naming `sp_`/`fn_`/`tf_`/`tr_`/`vw_`, snake_case/singular, PK `id bigserial`, Timestamps `_on`, tabellarisches Alignment, Dollar-Quoting, File Naming & Numbering, generische Layout-Prinzipien: Datei-Gerüst, Banner-Blöcke, SELECT/DML, CTE). **Bei Widerspruch gilt sql.md.**
+- **Objekt-spezifische Regeln sind in die Objekt-Dateien ausgelagert** (dort maßgeblich für ihren Objekttyp; für Übergreifendes verweisen sie zurück auf `sql.md`):
+  - `tables.md` — CREATE-TABLE-Layout, Foreign Keys / Unique, Comments (Tabelle & Spalten), INSERT/Seed, Datentypen, Audit-Spalten, RLS.
+  - `procedures.md` — Parameter-Reihenfolge (ID zuerst), Parameter-Dokumentation, Body-Struktur „Get name / Check parameter / Workload", `format()`-Fehlermeldungen, Single Responsibility, Procedure-Skelett.
+  - `functions.md` — Function-Skelett, Volatilität; geteilte Body-Regeln via Verweis auf `procedures.md`.
+  - `trigger.md` — Trigger-/Trigger-Function-Skelett, `TG_OP`-Logik.
+  - `views.md`, `policies.md` — View- bzw. RLS-Policy-Konventionen.
+- `/backend`, `/frontend`, `/review` lesen **`sql.md` (übergreifend) plus die jeweilige Objekt-Datei** (Tabellen → `tables.md`, Prozeduren → `procedures.md`, Funktionen → `functions.md`, Trigger → `trigger.md`, Views → `views.md`, Policies → `policies.md`).
 
 `sql.md` wurde von der diapp **auf dieses Framework angepasst** (framework-nativ):
 - **Schema-Variablen:** Beispiele nutzen `:schema_name` als Platzhalter für die konkreten `:schema_config`/`:schema_etl`/`:schema_helper`/`:schema_log`; Owner `:schema_owner`.

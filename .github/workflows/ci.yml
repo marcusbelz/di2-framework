@@ -1,0 +1,74 @@
+name: CI
+
+# DB-passende CI (di2f-0005): primaeres SQL-Gate ist ein echter Dry-Run-Deploy gegen
+# ein wegwerfbares PostgreSQL 17; dazu Lint (shellcheck + schlanker sqlfluff).
+# KEINE Secrets — ephemere DB im Runner, local-Creds 'pw' (siehe db/config/local.env*).
+# Laeuft daher auch aus Fork-PRs. Branch-Schutz/Required-Check liegt im di2f-0002-Ruleset.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run-deploy:
+    name: dry-run-deploy
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # postgres-Superuser-Passwort = POSTGRES_PASSWORD des Service (kein Secret; local).
+      DB_ADMIN_PASSWORD_POSTGRES: pw
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: psql-Client sicherstellen
+        run: |
+          command -v psql >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y postgresql-client; }
+          psql --version
+
+      - name: create.sh local (DB, 4 Schemas, Rollen, User)
+        run: bash db/scripts/create.sh local
+
+      - name: deploy.sh all local (alle vier Schemas)
+        run: bash db/scripts/deploy.sh all local
+
+      - name: deploy.sh all local erneut (Idempotenz-Check)
+        run: bash db/scripts/deploy.sh all local
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: shellcheck (Bash-Runner + Lint-Helfer)
+        run: shellcheck --severity=warning db/scripts/*.sh .github/*.sh
+
+      - name: sqlfluff installieren
+        # Exakt gepinnt (di2f-0005 Review-Minor): reproduzierbarer Required-Gate;
+        # bei Bedarf bewusst anheben + .sqlfluff/exclude_rules gegenprüfen.
+        run: pipx install 'sqlfluff==3.5.0'
+
+      - name: sqlfluff lint (SQL, sanitiert)
+        run: bash .github/sqlfluff-lint.sh

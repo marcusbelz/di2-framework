@@ -1,0 +1,27 @@
+# sqlfluff-Konfig (di2f-0005, DB-CI Lint) — bewusst SCHLANK.
+#
+# Die SQL-Korrektheit gated der echte Dry-Run-Deploy (ci.yml, Job dry-run-deploy).
+# sqlfluff prueft hier ergaenzend die Parsebarkeit + nicht-stilistische Regeln.
+#
+# Gelintet werden SANITIERTE Kopien (siehe .github/sqlfluff-lint.sh): psql-Meta-
+# Kommandos (\echo/\set/\i) entfernt, :variablen durch Platzhalter ersetzt.
+#
+# Abgeschaltete Regeln — sie kollidieren mit dem Hausstil aus .claude/rules/sql.md
+# bzw. sind Sanitierungs-Artefakte; ein Aktivieren waere Dauer-Rot ohne Mehrwert:
+#   layout                    -> Leading-Commas (LT04), tabellarisches Alignment (LT01),
+#                                3-Space-Indent (LT02), lange Alignment-/Kommentarzeilen (LT05),
+#                                Start-/End-of-File-Newline (LT13/LT12, durch das Strippen
+#                                der \echo-Kopf-/Fusszeilen bei der Sanitierung verursacht).
+#   references.keywords       -> bewusst gewaehlte Spaltennamen (version, state, ...).
+#   capitalisation.identifiers-> Casing-Konsistenz inkl. Sanitierungs-Platzhalter.
+#
+# Hinweis (BUG-0002 / Version-Pin): Aeltere sqlfluff-Versionen hatten die Regel
+# PG01/postgres.excessive_locks (verlangt CREATE INDEX CONCURRENTLY) — ein Fehlalarm
+# gegen die Hauskonvention (sql.md: CREATE INDEX ohne CONCURRENTLY; im transaktionalen
+# psql-Deploy ohnehin unmoeglich). Die in ci.yml gepinnte Version 3.5.0 enthaelt diese
+# Regel NICHT -> kein Exclude noetig. Wird sqlfluff je auf eine Version mit einer
+# Index-Lock-Regel angehoben, den passenden Exclude hier wieder aufnehmen.
+[sqlfluff]
+dialect = postgres
+templater = raw
+exclude_rules = layout, references.keywords, capitalisation.identifiers

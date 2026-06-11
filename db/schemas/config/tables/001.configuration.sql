@@ -10,6 +10,14 @@ CREATE TABLE IF NOT EXISTS :schema_config.configuration
    ,CONSTRAINT pk_configuration  PRIMARY KEY (section, code)
 );
 ALTER TABLE :schema_config.configuration OWNER TO :schema_owner;
-COMMENT ON TABLE :schema_config.configuration IS 'Konfigurationswerte der Anwendung (PK: section + code).';
+
+-- --------------------------------------------------------------------------------
+-- Comments
+-- --------------------------------------------------------------------------------
+COMMENT ON TABLE  :schema_config.configuration IS 'Konfigurationswerte der Anwendung (PK: section + code).';
+COMMENT ON COLUMN :schema_config.configuration.section IS 'Konfigurationsbereich (Teil des PK).';
+COMMENT ON COLUMN :schema_config.configuration.code IS 'Schlüssel innerhalb der Section (Teil des PK).';
+COMMENT ON COLUMN :schema_config.configuration.value IS 'Konfigurationswert.';
+COMMENT ON COLUMN :schema_config.configuration.description IS 'Optionale Beschreibung des Eintrags.';
 
 \echo "## CREATE TABLE :schema_config.configuration - DONE"

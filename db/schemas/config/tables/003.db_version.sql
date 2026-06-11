@@ -8,6 +8,12 @@ CREATE TABLE IF NOT EXISTS :schema_config.db_version
    ,CONSTRAINT pk_db_version  PRIMARY KEY (release_version)
 );
 ALTER TABLE :schema_config.db_version OWNER TO :schema_owner;
-COMMENT ON TABLE :schema_config.db_version IS 'Datenbank-Version.';
+
+-- --------------------------------------------------------------------------------
+-- Comments
+-- --------------------------------------------------------------------------------
+COMMENT ON TABLE  :schema_config.db_version IS 'Datenbank-Version.';
+COMMENT ON COLUMN :schema_config.db_version.release_version IS 'Veröffentlichte DB-Version (PK).';
+COMMENT ON COLUMN :schema_config.db_version.internal_version IS 'Interne Versionskennung (optional).';
 
 \echo "## CREATE TABLE :schema_config.db_version - DONE"
