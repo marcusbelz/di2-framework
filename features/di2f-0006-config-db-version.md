@@ -1,7 +1,7 @@
 # di2f-0006: DB-Versionierung (`config.db_version` Historie)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** In Review (QA bestanden 2026-06-12)
 - **Schema(s):** config
 
 ## Problem / Motivation
@@ -278,3 +278,153 @@ frischer DB (Bootstrap drop+create) entfällt das.
 ([deploy.sh](../db/scripts/deploy.sh)), reicht aber **noch nicht** die gesplitteten Versionsteile,
 `git_tag` oder den Umgebungsnamen durch und ruft die Prozedur nicht auf. Die Verdrahtung (Data-Skript
 `config/data/003.db_version.sql` o. Ä. + Runner-Variablen) ist ein eigenes Feature.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (keine Critical/High/Medium/Low-Bugs)
+
+**Testaufbau:** PostgreSQL 17 (Container `di2f_dev_postgres`), isolierte Scratch-DB `di2f_qa0006`
+(Schema `config` + globale Rollen `di2f_fw`/`di2f_rw`). Tabelle + Prozedur via psql mit
+`local.env.sql`-Variablen deployt. Testskript **neu**:
+[db/tests/config/003.db_version.sql](../db/tests/config/003.db_version.sql) (psql/`ASSERT`,
+transaktional + `ROLLBACK`, gleiche Konvention wie `005.process.sql`). Scratch-DB nach dem Lauf
+gedroppt.
+
+### Akzeptanzkriterien
+
+| AK | Inhalt | Ergebnis | Beleg |
+|----|--------|----------|-------|
+| 1 | Tabelle in `config`, PK = Surrogat-`id` (`pk_db_version`), nicht `release_version`; Stub-Spalten weg; 9 Spalten | ✅ | Katalog-Assert (`pg_constraint`/`information_schema`); `internal_version` weg |
+| 2 | Pflichtspalten `NOT NULL`, `git_tag` nullable | ✅ | `information_schema.columns` |
+| 3 | `release_version` konsistent (1/4/207 → `1.4.207`) | ✅ | generierte Spalte, Insert-Probe |
+| 4 | `environment` nur `dev/int/test/prod` (CHECK) | ✅ | Prozedur lehnt `staging` ab (`invalid_parameter_value`); direkter Bad-Insert → `check_violation` |
+| 5 | Prozedur legt **genau eine** Zeile an, gibt `id` zurück (`INOUT`) | ✅ | Happy Path, `count = 1`, `id IS NOT NULL` |
+| 6 | Fehlender Pflichtwert → `RAISE EXCEPTION`, kein Teil-Insert | ✅ | `major NULL` / leerer `git_commit` / negativ → `invalid_parameter_value`, Zeilenzahl unverändert |
+| 7 | Mehrere Aufrufe → mehrere Zeilen; neueste über `max(id)` / `deployed_on DESC, id DESC` | ✅ | verschiedene `id`s, neueste Zeile korrekt |
+| 8 | Re-Deploy desselben Commits → weitere Historienzeile (kein UNIQUE) | ✅ | identischer Stand 2× → +2 Zeilen |
+| 9 | Deploy-Skripte idempotent | ✅ | Tabelle + Prozedur **2× deployt** ohne Fehler (`IF NOT EXISTS` / `CREATE OR REPLACE`) |
+| 10 | `COMMENT ON TABLE` + `COMMENT ON COLUMN` | ✅ | `obj_description`/`col_description` gesetzt |
+
+### Edge Cases (alle ✅)
+- Leerer / Whitespace / `NULL` `git_tag` → als `NULL` gespeichert (`NULLIF(trim(...), '')`).
+- Versionsvergleich `1.4.10 > 1.4.9` über die int-Spalten korrekt; Gegenprobe bestätigt, dass der
+  String-Vergleich `'1.4.10' < '1.4.9'` falsch wäre (Begründung für getrennte int-Spalten).
+- Gleiche Version in `dev` **und** `int` erlaubt (`environment` unterscheidet).
+- Generierte Spalte `release_version` ist **nicht** direkt beschreibbar (`generated_always`-Fehler).
+
+### Feature-spezifische Security-Checks
+- **Dynamic SQL:** keins — statischer `INSERT … VALUES` mit Parametern. Keine Injection-Fläche. ✅
+- **SECURITY DEFINER:** nein (`prosecdef = false`, SECURITY INVOKER) — keine Privilege-Escalation. ✅
+- **Rechte:** Prozedur läuft mit Caller-Rechten; unter der regulären DML-Rolle `di2f_rw` ausführbar
+  (verifiziert nach Owner-Deploy: `di2f_rw` kann via Prozedur inserten). In der echten `di2f`-DB hat
+  `di2f_rw` Standard-DML auf `config`-Tabellen (Bootstrap-Grants). Kein übermäßiges `GRANT`. ✅
+- **RLS:** bewusst keine (nicht-sensible Deploy-Metadaten, Tech Design F). ✅
+- **Sensible Daten:** keine — `git_commit`/`git_tag` sind keine Secrets; keine Trace/Error-Kette. ✅
+
+### Protokollierung / Idempotenz
+- Logging bewusst minimal (Tech Design E.5): kein Execution/Component/Trace, kein `log.error`.
+  Fehlerpfad = harter `RAISE EXCEPTION` ohne Teil-Zeile — verifiziert. ✅
+- Idempotenz doppelt belegt: 2× Deploy (Skript-Ebene) **und** `CREATE OR REPLACE`/`IF NOT EXISTS`
+  im Code. ✅
+
+### Hinweise (informativ, keine Bugs)
+- **Datenmodell-Tabelle vs. Tech-Entscheidung E.4:** Die Scope-Tabelle (Zeilen ~74–75) listet noch
+  `created_on`/`created_by`; Tech-Entscheidung E.4 lässt diese **bewusst** weg (`deployed_on` ist der
+  fachliche Zeitstempel). Implementierung folgt korrekt E.4 — dokumentierte, aufgelöste Abweichung,
+  kein Defekt. Optional in der Scope-Tabelle nachziehen.
+- **`git_commit varchar(64)`** deckt SHA-1 (40) und SHA-256 (64). Ein längerer Wert würde mit
+  `string_data_right_truncation` (22001) abbrechen — kein dokumentiertes Requirement, akzeptabel.
+- **Idempotenz auf Umgebung mit altem Stub:** `CREATE TABLE IF NOT EXISTS` migriert den alten Stub
+  (`release_version`-PK) **nicht** — vor Deploy `db/scripts/clean.sh config <env>` nötig (bereits im
+  Spec-Abschnitt „Idempotenz-Hinweis" dokumentiert). Für `/deploy` beachten.
+
+### Kandidaten für nächsten `/security`-Run
+- **Config-Default-Privileges:** `di2f_rw` erhält DML auf neue `config`-Tabellen nur über
+  `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` — greift ausschließlich, wenn der Deploy als
+  Schema-Owner läuft (nicht als Superuser/anderer Rolle). Projektweit prüfen, dass alle Deploy-Pfade
+  als Owner laufen, damit Grants auf neuen Tabellen nicht stillschweigend fehlen.
+
+### Regression
+- `config.process` (di2f-0001, deployed) unberührt — keine geteilten Objekte verändert (eigene
+  Tabellen-Gruppennummer `003` im `config`-Schema, kein FK auf/von `process`). Log-Kette nicht
+  berührt (Feature schreibt nicht in `log`).
+
+---
+
+## Code Review
+
+**Reviewer:** `/review` · **Datum:** 2026-06-12 · **Range:** Backend-Commit `d174d45` + Working-Tree
+(Tabelle, Prozedur, Testskript, Spec-Updates) · **Verdict:** ✅ **Approve** (0 Blocker, 0 Major, 3 Minor)
+
+> Hinweis zum Range: `main` liegt weit zurück (enthält di2f-0001…0005 noch nicht), daher kein
+> `main...HEAD`-Diff, sondern gezielt der di2f-0006-Slice geprüft.
+
+### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
+| AK | Umsetzung im Code |
+|----|-------------------|
+| 1 | [003.db_version.sql:5,15](../db/schemas/config/tables/003.db_version.sql) — `id bigserial`, `CONSTRAINT pk_db_version PRIMARY KEY (id)` |
+| 2 | [003.db_version.sql:6-13](../db/schemas/config/tables/003.db_version.sql) — `NOT NULL` je Pflichtspalte, `git_tag … NULL` |
+| 3 | [003.db_version.sql:9](../db/schemas/config/tables/003.db_version.sql) — `release_version … GENERATED ALWAYS AS (…) STORED` |
+| 4 | [003.db_version.sql:17](../db/schemas/config/tables/003.db_version.sql) `chk_db_version_environment` + [003.sp_ins_db_version.sql:102-109](../db/schemas/config/procedures/003.sp_ins_db_version.sql) Prozedur-Guard |
+| 5 | [003.sp_ins_db_version.sql:120-130](../db/schemas/config/procedures/003.sp_ins_db_version.sql) — `INSERT … RETURNING id INTO p_id` |
+| 6 | [003.sp_ins_db_version.sql:65-110](../db/schemas/config/procedures/003.sp_ins_db_version.sql) — Check-Block vor Workload, `RAISE EXCEPTION` |
+| 7/8 | kein `UNIQUE` auf Commit/Version → Mehrfach-Insert erlaubt (Tabelle) |
+| 9 | `CREATE TABLE IF NOT EXISTS` + `DROP PROCEDURE IF EXISTS` / `CREATE OR REPLACE` |
+| 10 | [003.db_version.sql:25-34](../db/schemas/config/tables/003.db_version.sql) — `COMMENT ON TABLE`/`COLUMN` |
+
+Keine Lücke in beide Richtungen (keine ungenannten Nebeneffekte; kein Data/Seed-Skript für
+`db_version` — korrekt, Non-Goal).
+
+### Conventions (sql.md + tables.md + procedures.md)
+- **Tabelle:** Leading-Comma-Layout, Name/Typ/Nullability tabellarisch ausgerichtet (`NOT` in der
+  4-Zeichen-Spalte, `NULL` fluchtet, `release_version`-Overflow korrekt), benannter PK als letztes
+  Element, CHECKs inline durch Leerzeile abgesetzt, `OWNER TO :schema_owner`, Schema durchgängig als
+  Variable, `varchar` statt `text`. Comment-Block folgt der neuen `tables.md`-Regel (IS-Alignment +
+  Leerzeile nach Tabellenkommentar). ✅
+- **Prozedur:** Naming `sp_ins_<entity>`, Identifier-zuerst (`INOUT p_id`), Parameter-Doku-Block,
+  Signatur-Alignment, `$procedure$`-Quoting, DECLARE-Gruppierung (Common/Error/Workload),
+  Body-Struktur Get-name/Check/Workload, `format($$…$$, …)` mit indizierten Platzhaltern, separate
+  `l_error_message`/`l_error_code`, `RAISE EXCEPTION USING …` einzeilig, ERRCODE
+  `invalid_parameter_value` konsistent. Treu baugleich zur Präzedenz `sp_ins_process`. ✅
+- **Idempotenz:** doppelter Deploy in QA fehlerfrei belegt. ✅
+
+### Security-Smells am Diff
+- Kein Dynamic SQL (statischer `INSERT … VALUES` mit Parametern) — keine Injection-Fläche. ✅
+- Kein `SECURITY DEFINER` (SECURITY INVOKER) — keine Privilege-Escalation. ✅
+- Schema-qualifiziert (`config.db_version` im Body, korrekt nicht interpoliert), keine Objekte in
+  `public`, keine Secrets, keine sensiblen Daten in Logs (keine Log-Kette). ✅
+
+### Findings
+
+**Blocker (0):** —
+**Major (0):** —
+
+**Minor (3):**
+1. **Gemischte Sprache im Parameter-Doku-Block** — [003.sp_ins_db_version.sql:8-21](../db/schemas/config/procedures/003.sp_ins_db_version.sql):
+   `p_id` ist englisch (folgt der `sp_ins_process`-Präzedenz, die durchgehend englisch ist), die
+   übrigen Parameter (`p_major`…`p_environment`) sind deutsch. Innerhalb einer Datei inkonsistent.
+   *Vorschlag:* einheitlich — entweder durchgehend deutsch (Projektsprache lt. CLAUDE.md) oder
+   durchgehend englisch wie die Präzedenz; nicht gemischt.
+2. **`p_git_commit`-Länge nicht in der Prozedur validiert** —
+   [003.sp_ins_db_version.sql:84-91](../db/schemas/config/procedures/003.sp_ins_db_version.sql):
+   >64 Zeichen führen zu `string_data_right_truncation` (22001) aus der Tabelle statt zu einer
+   sprechenden Guard-Meldung. Kein dokumentiertes Requirement; akzeptabel. *Optional:* analog zu den
+   anderen Guards eine Längenprüfung ergänzen, falls eine konsistente Fehlermeldung gewünscht ist.
+   Niedrigste Prio.
+3. **Doku-Nit in der Spec** — Scope/Datenmodell-Tabelle (Zeilen ~74–75) listet noch
+   `created_on`/`created_by`, die Tech-Entscheidung E.4 **bewusst** weglässt. Implementierung folgt
+   korrekt E.4; nur die Scope-Tabelle hinkt der Entscheidung hinterher. *Optional:* Tabelle nachziehen.
+
+### Hinweise (kein Finding)
+- **Commit-Hygiene:** Der Working Tree bündelt drei verschiedene Anliegen — (a) Kommentar-Reformat
+  über 11 Tabellen + `tables.md`-Regel (Style), (b) neues QA-Testskript, (c) Spec-/INDEX-Updates.
+  Empfehlung: getrennte Commits (`style(…)` / `test(di2f-0006)` / `chore(di2f-0006)`) statt eines
+  Sammelcommits. Reines Prozess-/Hygiene-Thema, kein Code-Defekt.
+- **`/security`-Kandidat (vom Diff bestätigt):** Config-Default-Privileges greifen nur bei
+  Owner-Deploy (siehe QA-Sektion).
+
+### Empfehlung
+**Approve** — nur Minor, keine davon blockierend. Die drei Minors können vor dem Deploy aufgeräumt
+oder als Follow-up geführt werden. Nächster Schritt: `/deploy dev`.
