@@ -234,3 +234,47 @@ einer stillen oder unvollständigen Zeile.
 - **Verwandt (Folgeschritt, kein harter Requires):** Deploy-Runner (di2f-0003) und GitHub-Actions
   (di2f-0004) für die spätere Verdrahtung (Werte liefern + Prozedur aufrufen).
 - **Keine** PostgreSQL-Extensions, **kein** `etl`-Dynamic-SQL, **keine** RLS (Tabelle nicht sensibel).
+
+---
+
+## Implementierung (Backend)
+
+**Objekte** (beide Tabellen-Gruppennummer `003`):
+- `db/schemas/config/tables/003.db_version.sql` — Tabelle (ersetzt den Stub).
+- `db/schemas/config/procedures/003.sp_ins_db_version.sql` — Insert-Prozedur.
+
+**Implementierte Schnittstelle:**
+```
+config.sp_ins_db_version(
+   INOUT p_id           bigint,   -- Rückgabe der neuen Historien-id
+   IN    p_major        int,      -- Pflicht, >= 0
+   IN    p_minor        int,      -- Pflicht, >= 0
+   IN    p_build        int,      -- Pflicht, >= 0
+   IN    p_git_commit   varchar,  -- Pflicht, nicht leer
+   IN    p_git_tag      varchar,  -- optional; leer/Whitespace -> NULL
+   IN    p_environment  varchar   -- Pflicht, einer von dev/int/test/prod
+)
+```
+- Legt **eine** neue Zeile an, gibt die `id` über `p_id` zurück; `release_version` und `deployed_on`
+  werden automatisch gesetzt (generierte Spalte bzw. `DEFAULT now()`).
+- **Fehlerverhalten:** fehlende/ungültige Pflichtwerte → `RAISE EXCEPTION` mit `ERRCODE
+  'invalid_parameter_value'`, kein Teil-Insert. Validierungen (NULL/leer/negativ/Umgebung) liegen im
+  `Check parameter`-Block; die `CHECK`-Constraints der Tabelle sind Defense-in-Depth.
+- **Schlank** wie `config.sp_ins_process` (kein `lc_messages`/`PG_CONTEXT`, kein Component-Logging).
+
+**Smoke-Test:** gegen PostgreSQL 17 (Docker) verifiziert — Happy Path (`release_version` generiert),
+leerer Tag → NULL, alle Fehlerpfade (NULL/negativ/leerer Commit/ungültige Umgebung), Versionsvergleich
+`1.4.9 < 1.4.10` über die int-Spalten, CHECK-Constraint blockt direkten Bad-Insert, generierte Spalte
+nicht direkt beschreibbar, **Re-Deploy idempotent**.
+
+**Idempotenz-Hinweis (Struktur-Änderung):** Die Tabelle wechselt den PK (`release_version` →
+Surrogat-`id`) und Spalten gegenüber dem alten Stub. `CREATE TABLE IF NOT EXISTS` allein migriert eine
+**bereits vorhandene** Stub-Tabelle nicht — auf einer Umgebung mit altem Stub muss vor dem Deploy
+`db/scripts/clean.sh config <env>` laufen (droppt die Objekte, Schema bleibt), dann `deploy.sh`. Bei
+frischer DB (Bootstrap drop+create) entfällt das.
+
+**Folgeschritt (nicht Teil von di2f-0006):** Der Deploy-Runner liefert bereits `:db_version`
+(`APP_VERSION_MAJOR/MINOR/BUILD` → `1.0.0`) und `:git_sha` als psql-Variablen
+([deploy.sh](../db/scripts/deploy.sh)), reicht aber **noch nicht** die gesplitteten Versionsteile,
+`git_tag` oder den Umgebungsnamen durch und ruft die Prozedur nicht auf. Die Verdrahtung (Data-Skript
+`config/data/003.db_version.sql` o. Ä. + Runner-Variablen) ist ein eigenes Feature.
