@@ -344,6 +344,50 @@ Grants im realen Bootstrap → spätestens `/deploy dev`), keine Code-Defekte.
 
 ---
 
+### Re-QA 2026-06-11 (nach Konventions-Umbau `a82eeb4` + Fix `2c5dcdd`)
+
+**Auslöser:** Der Konventions-Umbau `a82eeb4` („Identifier zuerst", `procedures.md`) drehte die
+Signatur von `sp_ins_process` von `(p_name, p_id)` auf `(p_id, p_name)` — ließ aber `DROP`/`ALTER`
+und die Testaufrufe in der **alten** Reihenfolge zurück. Folge: Deploy brach beim `ALTER PROCEDURE`
+mit „procedure … does not exist" ab; Test rief `sp_ins_process(name, id)` auf. **Fix `2c5dcdd`:**
+`DROP`/`ALTER` auf `(bigint, varchar)` korrigiert, 8 Testaufrufe auf `(p_id, p_name)` gedreht.
+
+**Umfang des Re-Tests (nur geänderte Fläche, Context-Recovery):** Signatur-/Interface-Änderung der
+drei Procedures. `git show a82eeb4` belegt: der Umbau ist ansonsten **rein formal** (Parameter-Doku-
+Block, DECLARE-Banner-Gruppierung, `VALUES`-Layout) — **keine** Logik-/Verhaltensänderung (gleiche
+Validierung, gleicher INSERT, gleiche Exception-Pfade). `sp_upd_process`/`sp_del_process`: Signatur
+war bereits `id`-zuerst → unverändert korrekt. Idempotenz-Mechanik (`DROP … IF EXISTS` /
+`CREATE OR REPLACE` / `ON CONFLICT DO NOTHING`) durch den Umbau unberührt.
+
+**Live-Verifikation (diese Session, lokale Docker-PG als Laufzeitrolle `di2f_fw`):**
+- `deploy.sh all local` → läuft **sauber durch alle vier Schemas** (helper→config→log→etl),
+  Abschluss `--- done ---`, **kein** `ERROR`/`FATAL` (nur idempotente
+  „… does not exist, skipping"-NOTICES). → AK 4 ✅
+- `db/tests/config/005.process.sql` → `### ALL ASSERTIONS PASSED (AK 1-3,5 strukturell + 6-15 +
+  Edge >100)`, transaktional mit `ROLLBACK` (keine Testdaten zurück). → AK 1-3,5,6-16 + Edge Cases
+  (>100 Zeichen, doppelter Name ins/upd, NULL/leer/Whitespace, No-op-Update, referenzierter Delete,
+  unbekannte `id`) erneut ✅
+
+**Caller-Sweep (alte Reihenfolge):** projektweit `sp_ins_process(`-Aufrufe geprüft — alle 8
+SQL-Aufrufe (nur Test) korrekt `(p_id, p_name)`; Seed nutzt direktes `INSERT` (ruft die Proc nicht).
+**Kein** Code-Caller in alter Reihenfolge.
+
+**Funde:**
+- **Niedrig (Doku) — Backend-Sektion stale:** [Backend, „Implementierte Schnittstellen"](#backend-implementiert)
+  dokumentiert `sp_ins_process` noch als `(IN p_name varchar, INOUT p_id bigint)` (alte Reihenfolge).
+  Code ist nach `a82eeb4` `(INOUT p_id bigint, IN p_name varchar)`. Reine Doku-Inkonsistenz, **kein**
+  Code-Defekt. → trivialer doc-only-Fix (Routing `/backend`).
+
+**Deployment-Hinweis (kein Bug):** Der dev-Deploy (`4a729dd`) liegt **vor** `a82eeb4` → die dev-DB
+trägt noch die **alte** `sp_ins_process`-Signatur. Umbau (`a82eeb4`) + Fix (`2c5dcdd`) sind **noch
+nicht** auf dev ausgerollt. Re-Deploy nach erneutem `/review` erforderlich.
+
+**Production-Ready: READY.** Keine Critical/High/Medium. Der Konventions-Umbau ist funktional
+verifiziert (Deploy grün, Test grün); einzige offene Position ist die triviale Doku-Korrektur
+(Backend-Signatur).
+
+---
+
 ## Code Review
 
 - **Reviewer:** `/review` (Claude) · **Datum:** 2026-06-11
