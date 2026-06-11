@@ -1,0 +1,6 @@
+# shellcheck-Konfig (di2f-0005, DB-CI Lint).
+#
+# SC1090: Die Runner laden ihre Umgebungs-Config dynamisch (`source "$CONFIG"`,
+# Pfad erst zur Laufzeit aus dem <env>-Argument bestimmt). shellcheck kann der
+# Quelle prinzipiell nicht folgen — kein Defekt, projektweit deaktiviert.
+disable=SC1090

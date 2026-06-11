@@ -1,2 +1,20 @@
+# sqlfluff-Konfig (di2f-0005, DB-CI Lint) — bewusst SCHLANK.
+#
+# Die SQL-Korrektheit gated der echte Dry-Run-Deploy (ci.yml, Job dry-run-deploy).
+# sqlfluff prueft hier ergaenzend die Parsebarkeit + nicht-stilistische Regeln.
+#
+# Gelintet werden SANITIERTE Kopien (siehe .github/sqlfluff-lint.sh): psql-Meta-
+# Kommandos (\echo/\set/\i) entfernt, :variablen durch Platzhalter ersetzt.
+#
+# Abgeschaltete Regeln — sie kollidieren mit dem Hausstil aus .claude/rules/sql.md
+# bzw. sind Sanitierungs-Artefakte; ein Aktivieren waere Dauer-Rot ohne Mehrwert:
+#   layout                    -> Leading-Commas (LT04), tabellarisches Alignment (LT01),
+#                                3-Space-Indent (LT02), lange Alignment-/Kommentarzeilen (LT05),
+#                                Start-/End-of-File-Newline (LT13/LT12, durch das Strippen
+#                                der \echo-Kopf-/Fusszeilen bei der Sanitierung verursacht).
+#   references.keywords       -> bewusst gewaehlte Spaltennamen (version, state, ...).
+#   capitalisation.identifiers-> Casing-Konsistenz inkl. Sanitierungs-Platzhalter.
 [sqlfluff]
 dialect = postgres
+templater = raw
+exclude_rules = layout, references.keywords, capitalisation.identifiers

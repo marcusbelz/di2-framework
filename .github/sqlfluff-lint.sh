@@ -19,6 +19,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Dateien mit Konstrukten, die sqlfluffs Postgres-Dialekt (noch) nicht parst, obwohl
+# sie valides PostgreSQL sind. Korrektheit gated der Dry-Run-Deploy, nicht der Lint.
+SKIP=(
+   "db/database/08.create.role.rw.sql"   # CREATE ROLE ... CONNECTION LIMIT -1  -> sqlfluff PRS-Gap
+)
+
+is_skipped() {
+   local needle="$1" s
+   for s in "${SKIP[@]}"; do
+      [ "$s" = "$needle" ] && return 0
+   done
+   return 1
+}
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -26,6 +40,10 @@ shopt -s globstar nullglob
 
 n=0
 for f in db/schemas/**/*.sql db/database/*.sql; do
+   if is_skipped "$f"; then
+      echo "    (skip lint: ${f} — sqlfluff-Parser-Gap; Korrektheit via Dry-Run-Deploy)"
+      continue
+   fi
    dest="$TMP/${f//\//__}"
    sed -E \
       -e 's/::/@@CAST@@/g' \

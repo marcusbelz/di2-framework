@@ -141,3 +141,98 @@ Bewusst **schlank**: Die Prozeduren schreiben **keine** Execution/Component/Trac
 - Requires: Tabelle `log.execution` (für den Referenz-Check in `sp_del_process` und den Test).
 - Requires: `config.tf_set_modified()` (neu in diesem Feature) für `config.tr_u_process`.
 - Relates: di2f-0005 (DB-CI) — das psql-Testskript kann dort als Smoke-/Lint-Schritt aufgegriffen werden.
+
+---
+
+## Tech Design (Solution Architect)
+
+> **Views nötig: Nein.** di2f-0001 ist reines Backend — Tabellenumzug, drei CRUD-Prozeduren, ein
+> Seed und ein Testskript. Es gibt nichts auszuwerten/zu monitoren. Nach `/backend` folgt **kein**
+> `/frontend`.
+
+### A) Einordnung
+Prozesse sind **Konfigurations-Stammdaten**, keine Protokoll-Einträge. Das Feature verschiebt die
+`process`-Tabelle deshalb aus `log` nach `config` und macht sie dort „benutzbar": kontrolliertes
+Anlegen/Ändern/Löschen über Prozeduren, ein Default-Stammdatum und ein automatisierter Test. Die
+Protokoll-Tabelle `log.execution` zeigt weiterhin auf einen Prozess — nun schemaübergreifend.
+
+### B) Objekt-Landschaft (flache Liste, keine Implementierung)
+
+**Schema `config` (neu/zugezogen):**
+- `config.process` *(Tabelle)* — Stammdaten benannter Prozesse; zieht aus `log`, erhält `UNIQUE(name)`.
+- `config.tf_set_modified()` *(Trigger-Funktion, NEU)* — setzt `modified_on`/`modified_by` bei jedem
+  UPDATE; erste Trigger-Funktion in `config`, wiederverwendbar für künftige config-Tabellen.
+- `config.tr_u_process` *(Trigger)* — feuert `tf_set_modified()` bei UPDATE auf `process`.
+- `config.sp_ins_process` *(Prozedur)* — legt einen Prozess an, gibt die neue `id` zurück.
+- `config.sp_upd_process` *(Prozedur)* — benennt einen Prozess um.
+- `config.sp_del_process` *(Prozedur)* — löscht einen Prozess; schützt referenzierte Prozesse.
+- `config/data/005.process.sql` *(Seed)* — ein Default-Datensatz (`name = 'default'`).
+
+**Schema `log` (Strukturanpassung, kein neues Verhalten):**
+- `log.execution` — FK `process_id` zeigt künftig auf `config.process(id)`; Datei-Renumber `002 → 001`.
+- `log.component` / `trace` / `error` / `import_file` / `export_file` — reines Datei-Renumber.
+- log-Trigger — Renumber; `log/.../tr_u_process` **entfällt** (zieht nach config).
+- `log/tables/…process.sql` **entfällt** (zieht nach config).
+
+**`db/tests/`:**
+- erstes psql-Testskript (Assertions) — etabliert die Test-Konvention.
+
+### C) Datenmodell (Klartext)
+Ein **Prozess** hat:
+- eine eindeutige `id` (technischer Schlüssel),
+- einen **eindeutigen Namen** (max. 100 Zeichen),
+- Audit: *wer/wann angelegt* (`created_on`/`created_by`), *wer/wann zuletzt geändert*
+  (`modified_on`/`modified_by`).
+
+Gespeichert in **`config.process`**. Beziehung: **viele** `log.execution`-Einträge verweisen über
+`process_id` auf **einen** `config.process`. Ausgeliefertes Stammdatum: **genau ein** Prozess
+`default`.
+
+### D) Schnittstellen (Klartext, nur Zweck — kein Code)
+- `config.sp_ins_process(name) → neue id` — legt einen Prozess an; lehnt **leeren** und **doppelten**
+  Namen mit klarer Meldung ab.
+- `config.sp_upd_process(id, neuer_name)` — benennt um; **identischer** Name = No-op (kein Fehler);
+  **doppelter** Name oder **fehlende** `id` = klare Meldung.
+- `config.sp_del_process(id)` — löscht; **referenzierter** Prozess = Abweisung **mit Anzahl** der
+  Executions (Datensatz bleibt); **fehlende** `id` = Meldung.
+
+Audit-Akteur kommt aus `current_user` (kein `p_actor_email`-Parameter) — bewusste Abweichung für diese
+framework-interne Stammdaten-Tabelle.
+
+### E) Datenfluss & Protokollierung
+- **Anlegen:** Aufrufer → `sp_ins_process` → neue Zeile in `config.process` → `id` zurück → später
+  `log.execution` mit diesem `process_id`.
+- **Ändern:** `sp_upd_process` → UPDATE → Trigger `tr_u_process` setzt `modified_on`/`modified_by`.
+- **Löschen:** `sp_del_process` zählt zuerst die referenzierenden `log.execution`-Zeilen;
+  > 0 → Abweisung mit Anzahl (Datensatz bleibt), = 0 → DELETE. Der FK (`RESTRICT`) wirkt als
+  Backstop bei Direktzugriff.
+
+**Bewusst keine** Execution/Component/Trace/Error-Protokollierung in diesen Prozeduren — sonst würde
+die Stammdaten-/Infrastruktur sich selbst protokollieren (zirkulär). Fehler werden ausschließlich
+über `RAISE` mit `format()`-Meldung (separate Variablen, sql.md-Pattern) gemeldet.
+
+### F) Tech-Entscheidungen (für PM begründet)
+1. **`process` nach `config`:** Prozesse sind Konfigurations-Stammdaten; `log` enthält nur die
+   *Einträge* einer Ausführung. Der Umzug schärft die Schema-Semantik.
+2. **Schemaübergreifender FK statt Duplizieren:** Es gibt **eine** Wahrheit für Prozesse;
+   `execution` verweist direkt darauf. Möglich, weil `config` **vor** `log` deployt wird.
+3. **Eigene `config.tf_set_modified()` statt Wiederverwendung von `log`:** Die Deploy-Reihenfolge
+   (config zuerst) verbietet einen Verweis auf ein `log`-Objekt; zugleich bleibt `config`
+   selbst-konsistent und der Trigger für weitere config-Tabellen nutzbar.
+4. **Pre-Check + FK-Backstop beim Löschen:** freundliche Meldung *mit Anzahl* statt rohem
+   FK-Fehler; der FK schützt zusätzlich bei direktem Zugriff an den Prozeduren vorbei.
+5. **Schlanke Prozeduren ohne `lc_messages`/Komponenten-Logging:** kein `GRANT SET ON PARAMETER`
+   nötig (BUG-0337); passt zur Entscheidung „keine Framework-Protokollierung".
+6. **`log`-Renumber ab 001:** rein strukturell/kosmetisch — hält die Tabellen-Gruppennummern nach
+   dem Wegzug von `process` lückenlos.
+7. **Test als reines psql + `ASSERT`:** keine Extension-Abhängigkeit, läuft in jeder Umgebung und in
+   der DB-CI (di2f-0005).
+
+### G) Abhängigkeiten (Technik)
+- **Deploy-Reihenfolge** `helper → config → log → etl` ([db/scripts/deploy.sh:40](../db/scripts/deploy.sh#L40))
+  — config vor log; erfüllt.
+- **`log.execution`** muss existieren (Referenz-Check in `sp_del_process` + Test).
+- **Laufzeitrolle (RW):** braucht `USAGE` auf **beiden** Schemas (`config`, `log`), `SELECT` auf
+  `log.execution` (Cross-Schema-Read im Löschpfad) und DML auf `config.process` — im bestehenden
+  Grant-Modell (fw-Owner Default Privileges) abgedeckt; im `/backend` verifizieren.
+- **Keine** Extensions, **kein** `etl`/Dynamic SQL, **keine** Views.
