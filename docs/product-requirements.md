@@ -34,7 +34,7 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
 | P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
 | P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
-| P1 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | Geplant | [di2f-0001](../features/di2f-0001-finalisierung-config-process.md) |
+| P1 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | In Review | [di2f-0001](../features/di2f-0001-finalisierung-config-process.md) |
 | P1 | Test-Suite (`db/tests/`) | Geplant | — |
 | P1 | DB-CI — Dry-Run-Deploy + Lint (GitHub Actions, Required-Gate) | Geplant | [di2f-0005](../features/di2f-0005-db-ci-dry-run-deploy-lint.md) |
 | P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Deployed | [di2f-0004](../features/archive/di2f-0004-github-actions-db-workflows-secrets.md) |

@@ -407,3 +407,18 @@ Skripte am richtigen Ort; `deploy.sh`-Sektions-/Nummern-Reihenfolge löst Depend
 **Approve with Comments** — keine Blocker. Ein Major (`sql.md`-Doku-Widerspruch; doc-only, vor
 Merge empfohlen, damit die Konventionen kohärent bleiben), Minors optional/Follow-up. di2f-0001-Code
 ist korrekt, `/qa`-READY, idempotent, least-privilege verifiziert.
+
+---
+
+## Deployment
+
+| Env | Datum | Commit | Workflow | Ergebnis |
+|-----|-------|--------|----------|----------|
+| dev | 2026-06-11 | `d6d6ad1` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün |
+
+- Idempotenter Re-Deploy via `db/scripts/deploy.sh all dev` (SSH → Hetzner, `git reset --hard
+  origin/dev`). dev-DB war bereits gebootstrappt (`config`/`etl`/`helper`/`log` + Rollen `fw`/`rw`/`sa`).
+- Damit ist der Cross-Schema-Grant-Punkt aus QA/Review im **dev**-Env durch das reale `db/database/`-
+  Bootstrap praktisch bestätigt (Deploy lief unter dem fw-User fehlerfrei durch).
+- **Nächste Stufen:** `/deploy int` bzw. `/deploy test` (Branch `dev`); vor `/deploy prod` ist
+  `/security` Pflicht.
