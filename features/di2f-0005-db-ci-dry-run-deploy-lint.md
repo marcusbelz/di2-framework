@@ -120,3 +120,31 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 - Konkreter **sqlfluff-Regelsatz** + Form der **Meta-Command-Vorverarbeitung** (welche Zeilen raus, welcher Templater/`param_style`).
 - **Stabile Job-/Check-Namen** (der im Ruleset hinterlegte Required-Check-Name muss exakt passen — Edge Case „Check-Name ändert sich").
 - `shellcheck`-Severity/eventuelle Direktiven.
+
+---
+
+## Backend-Umsetzung (CI-Artefakte & Entscheidungen)
+
+**Artefakte:**
+- `.github/workflows/ci.yml` — zwei Jobs, getriggert durch `pull_request`→`main` und `push`→`dev`.
+- `.github/sqlfluff-lint.sh` — Lint-Helfer: sanitiert die psql-Skripte (Meta-Kommandos raus, `:vars` → Platzhalter, `::`-Cast geschützt), lintet sanitierte Kopien.
+- `.sqlfluff` — schlanke sqlfluff-Konfig.
+- `.shellcheckrc` — `disable=SC1090`.
+- `.gitattributes` — um `.sqlfluff`/`.shellcheckrc` (LF) ergänzt.
+
+**Job `dry-run-deploy`** (primäres SQL-Gate): `postgres:17` als Service (`POSTGRES_PASSWORD=pw`, Healthcheck), `DB_ADMIN_PASSWORD_POSTGRES=pw` (kein Secret). Schritte: psql-Client sicherstellen → `create.sh local` → `deploy.sh all local` → `deploy.sh all local` (Idempotenz).
+
+**Job `lint`:** `shellcheck --severity=warning db/scripts/*.sh .github/*.sh` + `pipx install 'sqlfluff>=3,<4'` → `bash .github/sqlfluff-lint.sh`.
+
+**Lint-Entscheidungen (Build-Zeit, aus Tech-Design H):**
+- **sqlfluff schlank:** `exclude_rules = layout, references.keywords, capitalisation.identifiers`. Begründung empirisch ermittelt — gegen die echten Dateien feuerten nur Layout-/Stil-Regeln (LT01/02/04/05, LT12/13) plus RF04 (`version`/`state` als Bezeichner) und CP02; **null** Parse-Fehler nach Sanitierung. Damit erfüllt AC 5 (kein Fehlalarm).
+- **Eine Datei vom sqlfluff-Lint ausgenommen:** `db/database/08.create.role.rw.sql` (`CREATE ROLE … CONNECTION LIMIT -1` — valides PG, aber sqlfluff-Parser-Gap). Der Skip wird **geloggt**; Korrektheit gated der Dry-Run. (Abweichung von AC 5 „db/database/*.sql": eine begründete, transparente Ausnahme.)
+- **shellcheck:** `SC1090` (dynamisches `source "$CONFIG"`) projektweit aus (`.shellcheckrc`); `--severity=warning` lässt das info-level `SC2162` (`read` ohne `-r` in den Runnern) **nicht** gaten. `SC2162` ist ein optionaler Mini-Follow-up an den di2f-0003-Runnern (eigener Bug, falls gewünscht) — hier bewusst nicht angefasst.
+
+**Required-Check (Governance, AC 7):** Job-/Check-Namen **`dry-run-deploy`** und **`lint`**. Das di2f-0002-Ruleset `protect-main` wird um diese als „Require status checks to pass" erweitert — **manuell/guided** (kein Datei-Artefakt) und **erst, nachdem `ci.yml` einmal gelaufen ist** (GitHub bietet den Check-Namen sonst nicht an).
+
+**Test-Stand (lokal via Docker validiert, 2026-06-11):**
+- `sqlfluff` (3.x) gegen die sanitierten Skripte: **grün** — 26 Dateien gelintet, 1 dokumentiert übersprungen, 0 Verstöße.
+- `shellcheck --severity=warning` über Runner + Helfer: **grün** (Exit 0).
+- **Dry-Run gegen `postgres:17`:** `create.sh local` + `deploy.sh all local` + erneut (Idempotenz) **erfolgreich**; `has_table_privilege('di2f_rw','log.process','SELECT')` = `t` (Default-Privileges-Grant greift).
+- **Live-Lauf in GitHub Actions** steht aus (erst nach Push/PR sichtbar; YAML-Syntax wurde validiert).
