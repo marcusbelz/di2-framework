@@ -1,0 +1,9 @@
+# Zeilenenden normalisieren: das Repo speichert LF, Checkout liefert LF auf allen
+# Plattformen. Deploy-Tooling (Bash-Runner, psql-Skripte) läuft unter Linux —
+# CRLF würde dort `bash`/`psql` brechen.
+*.sh   text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf
+*.env  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf

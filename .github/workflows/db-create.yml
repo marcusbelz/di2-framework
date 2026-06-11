@@ -1,0 +1,46 @@
+name: DB - create
+
+# Einmaliges DB-/Rollen-/User-Setup einer Umgebung (ruft db/scripts/create.sh).
+# Manuell auslösbar. Branch->Umgebung wird nativ über die GitHub-Environment-
+# Deployment-Branches erzwungen (dev/int <- dev, test/prod <- main; siehe di2f-0002).
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Zielumgebung'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, int, test, prod]
+
+jobs:
+  create:
+    name: Create database on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: create.sh via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DB_ADMIN_PASSWORD_POSTGRES: ${{ secrets.DB_ADMIN_PASSWORD_POSTGRES }}
+          DB_OWNER_PASSWORD: ${{ secrets.DB_OWNER_PASSWORD }}
+          DB_FW_PASSWORD: ${{ secrets.DB_FW_PASSWORD }}
+          DB_SA_PASSWORD: ${{ secrets.DB_SA_PASSWORD }}
+        with:
+          host: ${{ secrets.HETZNER_SSH_HOST }}
+          username: ${{ secrets.HETZNER_SSH_USER }}
+          key: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          port: ${{ vars.SSH_PORT || 2121 }}
+          envs: DB_ADMIN_PASSWORD_POSTGRES,DB_OWNER_PASSWORD,DB_FW_PASSWORD,DB_SA_PASSWORD
+          script: |
+            set -e
+            if [ -z "${{ vars.DEPLOY_PATH }}" ]; then
+              echo "ERROR: Environment-Variable DEPLOY_PATH ist für '${{ github.event.inputs.environment }}' nicht gesetzt."
+              exit 1
+            fi
+            cd "${{ vars.DEPLOY_PATH }}"
+            git fetch origin "${{ github.ref_name }}"
+            git reset --hard "origin/${{ github.ref_name }}"
+            bash db/scripts/create.sh "${{ github.event.inputs.environment }}"

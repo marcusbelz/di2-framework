@@ -5,15 +5,15 @@
 -- --------------------------------------------------------------------------------
 -- Database
 -- --------------------------------------------------------------------------------
-\set database_name            di2_prod
-\set database_owner           di2_prod_owner
+\set database_name            di2f_prod
+\set database_owner           di2f_prod_owner
 \echo '## database_name       = ' :database_name
 \echo '## database_owner      = ' :database_owner
 
 -- --------------------------------------------------------------------------------
 -- Framework Schema Owner (besitzt alle vier Schemas)
 -- --------------------------------------------------------------------------------
-\set schema_owner             di2_prod_fw
+\set schema_owner             di2f_prod_fw
 \echo '## schema_owner        = ' :schema_owner
 
 -- --------------------------------------------------------------------------------
@@ -28,8 +28,8 @@
 -- --------------------------------------------------------------------------------
 -- Role / User Definitions
 -- --------------------------------------------------------------------------------
-\set role_rw                  di2_prod_rw
-\set user_sa                  di2_prod_sa
+\set role_rw                  di2f_prod_rw
+\set user_sa                  di2f_prod_sa
 \echo '## role_rw             = ' :role_rw
 \echo '## user_sa             = ' :user_sa
 

@@ -41,14 +41,15 @@ Nur, falls das PRD noch nicht existiert/leer ist.
 Konkret nachfragen: Verhalten bei doppelten Daten? Fehlerpfade (→ `log.error`, Status in `Component`/`Trace`)? Validierungsregeln? NULL/leere Eingaben? Nebenläufige Ausführung?
 
 ### Phase 3: Spec schreiben
-- Nächste freie ID `di2f-XXXX` (höchste vorhandene aus `features/` + 1).
+- Nächste freie ID `di2f-XXXX` = „Nächste freie ID" aus `features/INDEX.md` (Fallback: höchste vorhandene aus `features/` + `features/archive/` + 1).
 - Datei `features/di2f-XXXX-<slug>.md` nach dem **Template** unten.
 
 ### Phase 4: User-Review
 "Approved" → bereit für `/architecture`. "Changes needed" → iterieren.
 
 ### Phase 5: Tracking aktualisieren
-- Roadmap-Tabelle in `docs/product-requirements.md` um die neue ID/Status (**Geplant**) ergänzen bzw. den passenden Eintrag verlinken.
+- **`features/INDEX.md`:** neue Zeile in „Features (aktiv)" (ID, Feature, Status **Geplant**, Spec-Link, Erstell-Datum) ergänzen **und** „Nächste freie ID" hochzählen.
+- **`docs/product-requirements.md`:** Roadmap-Tabelle um die neue ID/Status (**Geplant**) ergänzen bzw. den passenden Eintrag verlinken.
 
 ---
 
@@ -109,6 +110,7 @@ Eine Spec = **eine** testbare, deploybare Einheit.
 - [ ] Jedes Akzeptanzkriterium testbar (nicht vage)
 - [ ] 3–5 Edge Cases
 - [ ] ID `di2f-XXXX` vergeben, Datei unter `features/`
+- [ ] `features/INDEX.md` ergänzt (neue Zeile + „Nächste freie ID" hochgezählt)
 - [ ] PRD-Roadmap aktualisiert
 - [ ] User hat reviewt und freigegeben
 

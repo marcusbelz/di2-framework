@@ -108,6 +108,7 @@ Quer dazu (jederzeit triggerbar, kein fester Schritt):
 ## Dokumentation (`features/` + `docs/`)
 
 - `features/di2f-XXXX-<slug>.md` — Feature-Specs (erzeugt durch `/requirements`); ID-Schema `di2f-XXXX`. Liegt im **Projekt-Root** (nicht unter `docs/`).
+- `features/INDEX.md` — zentrales Feature-Tracking (aktiv) + „Nächste freie ID"; deployte Features wandern via `git mv` nach `features/archive/` und in `features/archive/INDEX.md` (gepflegt von `/requirements` und `/deploy prod`).
 - `docs/product-requirements.md` — **PRD**: Vision, Target Users, Core-Features-Roadmap (P0/P1/P2 mit Status & Implementierung), Success Metrics, Infrastructure, Constraints, Non-Goals.
 - `docs/architecture/<feature>.md` — Architektur-Dokumente (`/architecture`).
 - `docs/security-audit.md` — Befunde aus `/security`; Gate für `/deploy prod`.

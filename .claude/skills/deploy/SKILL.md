@@ -39,7 +39,7 @@ Erlaubt sind genau `dev`, `int`, `test`, `prod`.
 **Vorbedingungen:** QA-Sektion "passed"; Branch `dev` enthält den Commit.
 **Ausführung:** GitHub → Actions → Workflow „Deploy - dev" → „Use workflow from: dev" → „Run workflow". Der Workflow spielt das Framework per `db/scripts/` in die dev-DB ein (idempotenter Re-Deploy).
 **Verifikation:** Workflow grün; Schemas/Objekte vorhanden (`\dn`, `\dt log.*`); Smoke-Test (ein Prozess protokolliert korrekt in Execution/Component/Trace).
-**Bookkeeping:** Deploy-Sektion in der Feature-Spec (Datum, Commit-SHA, Env=dev).
+**Bookkeeping:** Deploy-Sektion in der Feature-Spec (Datum, Commit-SHA, Env=dev); `features/INDEX.md`-Status auf **In Review** setzen.
 **Nächster Schritt:** `/review`, danach `/deploy int` oder `/deploy test`.
 
 ## `/deploy int`
@@ -76,6 +76,7 @@ GitHub → Actions → „Deploy - prod" → „Use workflow from: main" → „
 
 ### Bookkeeping
 - Feature-Spec(s): Deployment-Sektion (Env=prod, Datum), Status **Deployed**; PRD-Roadmap aktualisieren.
+- **Archivierung (`features/INDEX.md`):** Spec via `git mv features/di2f-XXXX-*.md features/archive/` verschieben; die Zeile aus „Features (aktiv)" entfernen und mit Status **Deployed** in `features/archive/INDEX.md` eintragen. Spec-Links in Specs/PRD, die auf die verschobene Datei zeigen, auf den `archive/`-Pfad anpassen.
 - Git-Tag: `git tag -a v1.X.0 -m "Prod release YYYY-MM-DD"`, `git push origin v1.X.0`.
 - `docs/security-audit.md` Audit-Historie: Zeile "Deploy prod YYYY-MM-DD" anhängen.
 

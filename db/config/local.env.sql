@@ -5,15 +5,15 @@
 -- --------------------------------------------------------------------------------
 -- Database
 -- --------------------------------------------------------------------------------
-\set database_name            di2_local
-\set database_owner           di2_local_owner
+\set database_name            di2f
+\set database_owner           di2f_owner
 \echo '## database_name       = ' :database_name
 \echo '## database_owner      = ' :database_owner
 
 -- --------------------------------------------------------------------------------
 -- Framework Schema Owner (besitzt alle vier Schemas)
 -- --------------------------------------------------------------------------------
-\set schema_owner             di2_local_fw
+\set schema_owner             di2f_fw
 \echo '## schema_owner        = ' :schema_owner
 
 -- --------------------------------------------------------------------------------
@@ -28,8 +28,8 @@
 -- --------------------------------------------------------------------------------
 -- Role / User Definitions
 -- --------------------------------------------------------------------------------
-\set role_rw                  di2_local_rw
-\set user_sa                  di2_local_sa
+\set role_rw                  di2f_rw
+\set user_sa                  di2f_sa
 \echo '## role_rw             = ' :role_rw
 \echo '## user_sa             = ' :user_sa
 
