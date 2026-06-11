@@ -14,11 +14,14 @@
 #                                der \echo-Kopf-/Fusszeilen bei der Sanitierung verursacht).
 #   references.keywords       -> bewusst gewaehlte Spaltennamen (version, state, ...).
 #   capitalisation.identifiers-> Casing-Konsistenz inkl. Sanitierungs-Platzhalter.
-#   postgres.excessive_locks  -> PG01 verlangt CREATE INDEX CONCURRENTLY; die Haus-
-#                                konvention (sql.md) nutzt das bewusst nicht, und im
-#                                transaktionalen psql-Deploy ist CONCURRENTLY unmoeglich
-#                                (BUG-0002).
+#
+# Hinweis (BUG-0002 / Version-Pin): Aeltere sqlfluff-Versionen hatten die Regel
+# PG01/postgres.excessive_locks (verlangt CREATE INDEX CONCURRENTLY) — ein Fehlalarm
+# gegen die Hauskonvention (sql.md: CREATE INDEX ohne CONCURRENTLY; im transaktionalen
+# psql-Deploy ohnehin unmoeglich). Die in ci.yml gepinnte Version 3.5.0 enthaelt diese
+# Regel NICHT -> kein Exclude noetig. Wird sqlfluff je auf eine Version mit einer
+# Index-Lock-Regel angehoben, den passenden Exclude hier wieder aufnehmen.
 [sqlfluff]
 dialect = postgres
 templater = raw
-exclude_rules = layout, references.keywords, capitalisation.identifiers, postgres.excessive_locks
+exclude_rules = layout, references.keywords, capitalisation.identifiers

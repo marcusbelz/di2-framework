@@ -207,3 +207,8 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 **Kandidaten für nächsten `/security`-Run:** Finding #3 (Ausführung ungetrusteten PR-SQL im Runner).
 
 **Hinweis zum Deploy-Pfad:** di2f-0005 deployt **keine** DB-Objekte → der klassische `/deploy dev` (SSH→Hetzner) ist nicht einschlägig. Das Feature ist auf `dev` bereits aktiv (Push→dev-CI) und wird für `main` durch Merge wirksam (gated durch seinen eigenen Required-Check).
+
+**Follow-up (Fix-Loop, 2026-06-11):**
+- **Minor #1 umgesetzt** — `ci.yml` pinnt `sqlfluff==3.5.0`. Der Pin deckte auf, dass 3.5.0 die Regel `PG01`/`postgres.excessive_locks` **nicht mehr** enthält (sqlfluff hat sie zwischen Minors entfernt — genau die Drift, die der Minor adressiert). Der BUG-0002-Exclude war in 3.5.0 ein ungültiger Verweis (`WARNING`) → aus `.sqlfluff` entfernt; `CREATE INDEX` lintet in 3.5.0 ohnehin grün. Kommentar in `.sqlfluff` dokumentiert das Wieder-Aufnehmen bei einem Versions-Bump.
+- **Minor #2 umgesetzt** — `.github/sqlfluff-lint.sh` warnt jetzt, wenn ein `SKIP`-Eintrag keine Datei mehr trifft (Drift-Erkennung).
+- **Minor #3 offen** — Ausführung ungetrusteten PR-SQL im `dry-run-deploy` bleibt `/security`-Kandidat (kein Code-Fix).

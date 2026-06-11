@@ -38,6 +38,12 @@ trap 'rm -rf "$TMP"' EXIT
 
 shopt -s globstar nullglob
 
+# Drift-Check (Review-Minor): warnen, falls ein SKIP-Eintrag keine Datei mehr trifft
+# (Datei umbenannt oder sqlfluff-Parser-Gap behoben -> Eintrag aus SKIP entfernen).
+for s in "${SKIP[@]}"; do
+   [ -f "$s" ] || echo "WARN: SKIP-Eintrag '${s}' trifft auf keine Datei (Drift?)."
+done
+
 n=0
 for f in db/schemas/**/*.sql db/database/*.sql; do
    if is_skipped "$f"; then
