@@ -163,8 +163,8 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 | 4 — shellcheck; Shell-Fehler → rot | ✅ | clean EXIT=0, kaputt EXIT=1 |
 | 5 — sqlfluff; Fehler → rot; **keine** Fehlalarme | ✅ | kaputt EXIT=1, Baseline EXIT=0; `PG01`-Fehlalarm via **BUG-0002 behoben** + re-getestet (committeter HEAD mit Index → grün) |
 | 6 — kaputtes SQL/Shell → rot | ✅ | sqlfluff=1, shellcheck=1, Dry-Run-Deploy EXIT=3 („syntax error") |
-| 7 — Ruleset verlangt CI-Check; rot blockt Merge | ⏳ offen | Ruleset-Setup (guided) + PR-Test ausstehend |
-| 8 — grün → mergebar | ⏳ offen | wie AC 7 |
+| 7 — Ruleset verlangt CI-Check; rot blockt Merge | ✅ | `protect-main` verlangt `dry-run-deploy` + `lint`; als „Required" sichtbar (2026-06-11) |
+| 8 — grün → mergebar | ✅ | Required-Checks grün → Merge frei (folgt aus AC 7) |
 | 9 — keine Secrets | ✅ | `ci.yml` ohne `secrets.*`; `permissions: contents: read`; local-Creds `pw` |
 
 **Edge Cases:** kaputtes SQL → Dry-Run rot ✅ (EXIT 3); nicht-idempotent → 2. Deploy rot ✅ (EXIT 3, „already exists"); sqlfluff zu streng → **Fehlalarm gefunden** (PG01, s. Bug); CRLF durch `.gitattributes` (LF) abgesichert; Fork-PR ohne Secrets ✅ (`pull_request`, nicht `pull_request_target`).
@@ -183,6 +183,6 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 
 **Regression:** di2f-0003-Runner durch den Dry-Run weiter grün (committeter Stand deployt + idempotent, RW-Grant `t`); di2f-0002/0004 unberührt (CI nutzt keine Environments/Secrets).
 
-**Production-Ready: JA, mit Auflagen** (keine Critical/High). Vor `/deploy`:
-1. ✅ **BUG-0002 (Mittel) `PG01`-Fehlalarm behoben** + `/qa`-re-getestet (Commit `1502212`) — `/bug close BUG-0002` noch ausstehend.
-2. **AC 7/8** durch Ruleset-Setup (guided) + einen Live-PR verifizieren.
+**Production-Ready: JA** (keine Critical/High; alle 9 AC erfüllt).
+1. ✅ **BUG-0002 (Mittel) `PG01`-Fehlalarm** behoben, `/qa`-re-getestet (`1502212`) + geschlossen (`3390ec9`).
+2. ✅ **AC 7/8** — Required-Check (`dry-run-deploy` + `lint`) im `protect-main`-Ruleset gesetzt, als „Required" sichtbar (2026-06-11).
