@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.error
 );
 ALTER TABLE :schema_log.error OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_log.error DROP CONSTRAINT IF EXISTS fk_error_execution_id;
 ALTER TABLE :schema_log.error ADD  CONSTRAINT fk_error_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
 

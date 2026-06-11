@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.trace
 );
 ALTER TABLE :schema_log.trace OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_log.trace DROP CONSTRAINT IF EXISTS fk_trace_component_id;
 ALTER TABLE :schema_log.trace ADD  CONSTRAINT fk_trace_component_id FOREIGN KEY (component_id) REFERENCES :schema_log.component(id);
 ALTER TABLE :schema_log.trace DROP CONSTRAINT IF EXISTS fk_trace_execution_id;

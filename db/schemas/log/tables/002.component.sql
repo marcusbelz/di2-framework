@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.component
 );
 ALTER TABLE :schema_log.component OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_log.component DROP CONSTRAINT IF EXISTS fk_component_execution_id;
 ALTER TABLE :schema_log.component ADD  CONSTRAINT fk_component_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
 

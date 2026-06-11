@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS :schema_config.table_metadata
 );
 ALTER TABLE :schema_config.table_metadata OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Unique constraints
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_config.table_metadata DROP CONSTRAINT IF EXISTS uq_table_metadata_ak1;
 ALTER TABLE :schema_config.table_metadata ADD  CONSTRAINT uq_table_metadata_ak1 UNIQUE (schema_id, table_id, column_id);
 

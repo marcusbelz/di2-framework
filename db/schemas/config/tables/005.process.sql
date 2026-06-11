@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS :schema_config.process
 );
 ALTER TABLE :schema_config.process OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Unique constraints
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_config.process DROP CONSTRAINT IF EXISTS uq_process_name;
 ALTER TABLE :schema_config.process ADD  CONSTRAINT uq_process_name UNIQUE (name);
 

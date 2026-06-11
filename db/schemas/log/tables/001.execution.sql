@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.execution
 );
 ALTER TABLE :schema_log.execution OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_log.execution DROP CONSTRAINT IF EXISTS fk_execution_process_id;
 ALTER TABLE :schema_log.execution ADD  CONSTRAINT fk_execution_process_id FOREIGN KEY (process_id) REFERENCES :schema_config.process(id);
 

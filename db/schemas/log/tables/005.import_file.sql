@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS :schema_log.import_file
 );
 ALTER TABLE :schema_log.import_file OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_log.import_file DROP CONSTRAINT IF EXISTS fk_import_file_execution_id;
 ALTER TABLE :schema_log.import_file ADD  CONSTRAINT fk_import_file_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
 

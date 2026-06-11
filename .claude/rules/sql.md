@@ -239,11 +239,15 @@ CREATE TABLE IF NOT EXISTS :schema_name.example
 );
 ALTER TABLE :schema_name.example OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Unique constraints
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
 ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
 ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
 ```
@@ -264,6 +268,20 @@ ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KE
   - Trenner: `--` + 80 Bindestriche.
   - Pro Block `di2f-XXXX:` als Einstieg, Fließtext darunter auf die Spalte nach dem Label eingerückt.
   - Das alte `--comment:`-Prefix entfällt.
+
+### Inline-Kommentar-Blöcke (Section-Kommentare)
+
+Gruppierende Section-Kommentare im Skript-Body — z. B. `-- Unique constraints` / `-- Foreign keys`
+nach der Tabelle sowie die `Get name` / `Check parameter` / `Workload`-Abschnitte im Procedure-Body —
+werden **immer** als **3-zeiliger Banner-Block** geschrieben: Trennlinie · Label · Trennlinie. Die
+**Trennlinie** ist `--`, **ein Leerzeichen**, dann **genau 80** `-`-Zeichen (Zeilenlänge 83). In
+eingerückten Blöcken (Procedure-Body) steht die Grundeinrückung (3 Spaces) vor jeder der drei Zeilen.
+
+```sql
+-- --------------------------------------------------------------------------------
+-- Unique constraints
+-- --------------------------------------------------------------------------------
+```
 
 ### Klammern auf eigener Zeile
 
@@ -300,11 +318,15 @@ CREATE TABLE IF NOT EXISTS :schema_name.example
 );
 ALTER TABLE :schema_name.example OWNER TO :schema_owner;
 
+-- --------------------------------------------------------------------------------
 -- Unique constraints
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
 ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
 
+-- --------------------------------------------------------------------------------
 -- Foreign keys
+-- --------------------------------------------------------------------------------
 ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
 ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
 ```
