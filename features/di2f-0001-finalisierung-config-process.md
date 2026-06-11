@@ -454,6 +454,65 @@ ist korrekt, `/qa`-READY, idempotent, least-privilege verifiziert.
 
 ---
 
+### Re-Review 2026-06-11 (Konventions-Umbau `a82eeb4` + Fix `2c5dcdd`)
+
+- **Reviewer:** `/review` (Claude) · **Datum:** 2026-06-11
+- **Diff-Range:** `4a729dd` (dev-Deploy) … HEAD, gefiltert auf di2f-0001: `a82eeb4`
+  (config-/log-Konventions-Umbau) + `2c5dcdd` (Signatur-Fix). Treiber ist die Rules-Überarbeitung
+  `82928ac` (Doku/Regeln, außerhalb des di2f-0001-Code-Scopes). `6f5a004` (Bootstrap-Preflight) ist
+  **kein** di2f-0001-Change → nicht Teil dieses Reviews.
+- **Diff-Scope:** 3 config-Procedures (Restructure + ins-Signatur), 5 config- + 6 log-Tabellen
+  (additive Comments), Test (Caller-Reorder).
+
+**Spec ↔ Code:** AK 1–16 weiterhin im Code belegt (Re-QA grün). Der Umbau ändert **keine**
+AK-relevante Logik — `git show a82eeb4` an den Procedures zeigt nur Parameter-Reihenfolge (ins) +
+Layout/Doku-Block; Validierung/INSERT/Exception-Pfade unverändert. Tabellen-Diffs rein additiv
+(`-- Comments`-Banner + `COMMENT ON COLUMN`).
+
+**Konventionen:**
+- Procedures: Parameter-Doku-Block, DECLARE-Banner-Gruppierung (Common/Error Handling/Workload),
+  Body-Struktur (Get name / Check parameter / Workload), `format($$…$$, …)` mit indizierten `%n$s`,
+  Dollar-Quoting, DROP/CREATE/ALTER-Gerüst, `:schema_*` in DDL + schema-qualifizierte Body-Referenzen
+  (sql.md-Ausnahme): ✅
+- ins-Signatur „Identifier zuerst" (`INOUT p_id, IN p_name`), DROP/ALTER konsistent `(bigint, varchar)`
+  (Fix `2c5dcdd`): ✅
+- Tabellen-Comments: `-- Comments`-Banner, ausgerichtetes `COMMENT ON TABLE `/`COMMENT ON COLUMN `,
+  Codes dokumentiert (`error_type` E/W/I), FK-Hinweise: ✅
+- Idempotenz (Deploy diese Session sauber durch alle 4 Schemas, kein `ERROR`): ✅
+
+**Findings**
+
+_Blocker:_ keine. _Major:_ keine (der frühere `sql.md`-Major ist in `d6d6ad1` behoben).
+
+_Minor:_
+1. **Backend-Sektion stale** — „Implementierte Schnittstellen" dokumentiert `sp_ins_process` noch als
+   `(IN p_name varchar, INOUT p_id bigint)` (alte Reihenfolge); Code ist `(INOUT p_id bigint, IN
+   p_name varchar)`. Reine Doku-Inkonsistenz (auch im Re-QA notiert). → triviale Korrektur.
+2. **Trailing Whitespace** — [005.sp_del_process.sql:52,93](../db/schemas/config/procedures/005.sp_del_process.sql),
+   [005.sp_upd_process.sql:70](../db/schemas/config/procedures/005.sp_upd_process.sql),
+   [005.sp_ins_process.sql:78](../db/schemas/config/procedures/005.sp_ins_process.sql) — Leerzeichen am
+   Zeilenende (Leerzeilen bzw. `WHERE`/`SELECT`). Kosmetisch. → Cleanup.
+3. **Parameter-Doku „(OUT)"** — [005.sp_ins_process.sql:9](../db/schemas/config/procedures/005.sp_ins_process.sql):
+   der Parameter ist `INOUT`, die Doku schreibt „(OUT)". Intent (Rückgabe der neuen `id`) korrekt,
+   Modus-Bezeichnung leicht ungenau. Optional.
+
+_Info / Kandidaten für `/security` (unverändert aus Vor-Review):_ natürliche zusammengesetzte PKs in
+`configuration`/`db_version`/`table_metadata` vs. sql.md („PK immer `id bigserial`"); Cross-Schema-
+Grants für `di2f_rw`. Vorbestehend, außerhalb dieses Diffs.
+
+**Deploy-Tauglichkeit:** Skripte am richtigen Ort, Sektions-/Nummern-Reihenfolge löst Dependencies
+(config vor log → Cross-Schema-FK), idempotent verifiziert. ✅
+
+**Deployment-Gap (kein Bug):** dev-DB trägt noch die alte Signatur (Deploy `4a729dd` < `a82eeb4`) →
+Re-Deploy nach diesem Review nötig.
+
+### Empfehlung (Re-Review)
+**Approve** — keine Blocker, keine Major; 3 Minor (Doku-Inkonsistenz, Trailing-Whitespace,
+Doku-Nuance), alle optional/trivial. Der Konventions-Umbau ist korrekt und vollständig angewendet,
+der Signatur-Fix konsistent. Nächster Schritt: `/deploy dev`.
+
+---
+
 ## Deployment
 
 | Env | Datum | Commit | Workflow | Ergebnis |
