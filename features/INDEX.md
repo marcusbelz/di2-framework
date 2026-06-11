@@ -17,7 +17,7 @@
 
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
-| di2f-0001 | Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) | Geplant | [di2f-0001-finalisierung-log-process.md](di2f-0001-finalisierung-log-process.md) | 2026-06-09 |
+| di2f-0001 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | Geplant | [di2f-0001-finalisierung-config-process.md](di2f-0001-finalisierung-config-process.md) | 2026-06-09 |
 | di2f-0005 | DB-CI — Dry-Run-Deploy + Lint (Required-Gate) | Geplant | [di2f-0005-db-ci-dry-run-deploy-lint.md](di2f-0005-db-ci-dry-run-deploy-lint.md) | 2026-06-09 |
 
 <!-- Add features above this line -->
