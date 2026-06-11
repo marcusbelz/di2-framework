@@ -81,3 +81,4 @@ _Keine._
 |-------|---------|----------|------|---------|
 | 2026-06-11 | Alle (1–8) | 0 | 0 | ✅ (Skelett-Scope; 3 Mittel als Roadmap-/Daten-Items) |
 | 2026-06-12 | Alle (1–8) | 0 | 0 | ✅ (Re-Audit nach config.process-Umbau + Bootstrap-Preflight; Lage unverändert, 3 Mittel offen als Roadmap-/Daten-Items) |
+| 2026-06-12 | Deploy prod (Gate: Audit 2026-06-12) | 0 | 0 | ✅ — Go-Live di2f-0001 prod `6290cd6`, Release-Tag `v1.0.0` |
