@@ -341,3 +341,67 @@ Fehler ausschließlich über `RAISE` mit `format()`-Meldung.
 **READY.** Keine Critical/High/Medium-Bugs. AK 1–16 + Edge Cases bestanden, idempotent,
 least-privilege verifiziert. Offene Punkte sind **Verifikations-/Konfig-Aufgaben** (Cross-Schema-
 Grants im realen Bootstrap → spätestens `/deploy dev`), keine Code-Defekte.
+
+---
+
+## Code Review
+
+- **Reviewer:** `/review` (Claude) · **Datum:** 2026-06-11
+- **Commit-Range (di2f-0001):** `c72697d` (Spec) · `6232176` (Tech Design) · `a4c3f8f` (Backend +
+  Konvention) · `518090e` (Banner-Stil + sql.md-Regel) · `0e659ea` (QA). di2f-0005-Commits sind
+  zwischengeschoben und **nicht** Teil dieses Reviews.
+- **Diff-Scope:** `config.process` (Tabelle/Trigger/Procedures/Seed), `log`-Renumber + FK, `db/tests/`,
+  `.claude/rules/sql.md` (Konvention), Tracking. Keine fremden Dateien.
+
+### Spec ↔ Code
+AK 1–16 im Code lokalisiert und durch `/qa` belegt (Tabelle/Constraints/FK/Trigger/Procedures/Seed/
+Test). Keine ungenannten Nebeneffekte; Datei-Scope passt zum Feature.
+
+### Konventionen (`sql.md` u. a.)
+- Naming (`sp_`/`tf_`/`tr_`, snake_case, singular), Dollar-Quoting (`$procedure$`/`$triggerfunction$`),
+  DROP-vor-CREATE, `OWNER TO`, `\echo`-Kopf/Fuß: ✅
+- `format($$…$$, …)`-Fehler über separate Variablen, indizierte `%n$s`, Quoting-Regeln: ✅
+- Body-Struktur Get name / Check parameter / Workload, tabellarisches Alignment: ✅
+- Neue Constraint-Konvention (PK inline; UNIQUE/FK als idempotente `ALTER`; Banner-Kommentare): ✅
+- Idempotenz aller `db/`-Skripte (Deploy 2× rc=0): ✅
+
+### Findings
+
+**Blocker:** keine.
+
+**Major:**
+1. **`sql.md`-Selbstwiderspruch** — [sql.md:63](../.claude/rules/sql.md#L63) sagt „ALWAYS use a
+   parameter or variable for the schema name — **NEVER hard code schema names**", aber die
+   Procedure-Bodies referenzieren bewusst hardcodiert `config.process` / `log.execution` (z. B.
+   [005.sp_del_process.sql](../db/schemas/config/procedures/005.sp_del_process.sql)). Der Code ist
+   **korrekt** (psql interpoliert `:schema_*` nicht in Dollar-Quoting — empirisch belegt), aber die
+   maßgebliche Regel muss eine **Ausnahme dokumentieren**: DDL nutzt `:schema_*`; im
+   dollar-gequoteten Body wird schema-qualifiziert hardcodiert. Sonst führt die autoritative Regel
+   künftige `/backend`/`/review` in die Irre. **Fix: doc-only in `sql.md`, kein Re-QA.**
+
+**Minor:**
+2. **Lean Get-name-Variante undokumentiert** — die Procedures setzen `l_component` als Literal und
+   lassen `SET LOCAL lc_messages` + `GET DIAGNOSTICS PG_CONTEXT` aus (begründet: kein
+   Komponenten-Logging → kein `GRANT SET ON PARAMETER`, BUG-0337). Sinnvoll, aber in
+   `sql.md`/`procedures.md` nicht als zulässige Variante erwähnt. → kurz dokumentieren. (Das Literal
+   enthält zudem den Schemanamen `config.` — selbes Thema wie Major #1.)
+3. **FK ohne explizites `ON DELETE`** — [001.execution.sql](../db/schemas/log/tables/001.execution.sql):
+   `confdeltype = NO ACTION`; Spec-Text nennt „RESTRICT". Funktional gleich (referenzierte Deletes
+   abgewiesen, AK 13 ✅). → optional explizit `ON DELETE RESTRICT`.
+
+**Info / Kandidaten für `/security`:**
+4. Natürliche zusammengesetzte PKs in `config.configuration` / `db_version` / `table_metadata`
+   widersprechen `sql.md` („PK immer `id bigserial`") — **vorbestehend**, außerhalb di2f-0001
+   (nur `table_metadata`-UNIQUE wurde verschoben). Systemisch → eigener Konvention-/`/security`-Task.
+5. Cross-Schema-Grants für `di2f_rw` — in QA-Sandbox belegt; reales `db/database/`-Bootstrap muss sie
+   vergeben (bei `/deploy dev` verifizieren).
+6. BUG-0002 (sqlfluff PG01-Fehlalarm auf `CREATE INDEX`) — Lint-Konfig.
+
+### Deploy-Tauglichkeit
+Skripte am richtigen Ort; `deploy.sh`-Sektions-/Nummern-Reihenfolge löst Dependencies (config vor log
+→ Cross-Schema-FK); idempotent verifiziert. ✅
+
+### Empfehlung
+**Approve with Comments** — keine Blocker. Ein Major (`sql.md`-Doku-Widerspruch; doc-only, vor
+Merge empfohlen, damit die Konventionen kohärent bleiben), Minors optional/Follow-up. di2f-0001-Code
+ist korrekt, `/qa`-READY, idempotent, least-privilege verifiziert.
