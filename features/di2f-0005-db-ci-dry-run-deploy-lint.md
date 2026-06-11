@@ -186,3 +186,24 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 **Production-Ready: JA** (keine Critical/High; alle 9 AC erfüllt).
 1. ✅ **BUG-0002 (Mittel) `PG01`-Fehlalarm** behoben, `/qa`-re-getestet (`1502212`) + geschlossen (`3390ec9`).
 2. ✅ **AC 7/8** — Required-Check (`dry-run-deploy` + `lint`) im `protect-main`-Ruleset gesetzt, als „Required" sichtbar (2026-06-11).
+
+---
+
+## Code Review (Code Reviewer)
+
+- **Reviewer:** Claude (`/review`) · **Datum:** 2026-06-11 · **Range:** di2f-0005-Artefakte bis `bc0222c`
+- **Geprüfte Dateien:** `.github/workflows/ci.yml`, `.sqlfluff`, `.github/sqlfluff-lint.sh`, `.shellcheckrc`, `.gitattributes` (Δ).
+- **Ergebnis: ✅ Approve** — 0 Blocker, 0 Major, 3 Minor.
+
+**Spec ↔ Code:** alle 9 AC im Diff lokalisiert — AC 1 `ci.yml:8-12`; AC 2 `ci.yml:22-33,48-49`; AC 3 `ci.yml:51-55`; AC 4 `ci.yml:65-66`; AC 5 `ci.yml:68-72` + `.sqlfluff` + Helfer; AC 6 (ON_ERROR_STOP + Lint-Exit, QA-belegt); AC 7/8 Ruleset; AC 9 `ci.yml:14-15` (`permissions: contents: read`, keine `secrets.*`).
+
+**Conventions:** `sql.md`-Objektregeln (Naming/Dollar-Quoting/Body-Struktur) **N/A** — keine DB-Objekte eingeführt. Erfüllt: `shellcheck`-clean (Runner + Helfer), YAML valide, LF via `.gitattributes`. Helfer sauber strukturiert (`set -euo pipefail`, `mktemp`+`trap`-Cleanup, geloggte Skips).
+
+**Findings (alle Minor):**
+1. **[Minor]** `ci.yml:69` — `pipx install 'sqlfluff>=3,<4'` ist floating innerhalb 3.x. Ein künftiges 3.x-Release könnte eine Regel verschärfen/ergänzen und den **Required**-Gate auf unbeteiligten PRs rot färben. Vorschlag: auf eine exakte Version pinnen (periodisch anheben) für reproduzierbare CI.
+2. **[Minor]** `.github/sqlfluff-lint.sh:24-26` — die `SKIP`-Liste wirkt still, wenn ein Eintrag keinen Treffer mehr hat (Datei umbenannt / Parser-Gap behoben). Vorschlag: warnen, wenn ein `SKIP`-Pfad auf keine Datei matcht (Drift-Erkennung).
+3. **[Minor / Security]** `ci.yml` `dry-run-deploy` **führt PR-SQL real aus** (`create.sh`/`deploy.sh` → `psql`). Bösartiges PR-SQL (`COPY … TO PROGRAM`) wäre RCE auf dem Runner. Mitigiert durch ephemeren Runner, keine Secrets, `contents: read`; akzeptabel für internes Team — bewusst zu entscheiden, falls je externe Fork-PRs gemergt werden.
+
+**Kandidaten für nächsten `/security`-Run:** Finding #3 (Ausführung ungetrusteten PR-SQL im Runner).
+
+**Hinweis zum Deploy-Pfad:** di2f-0005 deployt **keine** DB-Objekte → der klassische `/deploy dev` (SSH→Hetzner) ist nicht einschlägig. Das Feature ist auf `dev` bereits aktiv (Push→dev-CI) und wird für `main` durch Merge wirksam (gated durch seinen eigenen Required-Check).
