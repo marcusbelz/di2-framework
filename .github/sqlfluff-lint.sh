@@ -22,6 +22,7 @@ cd "$ROOT"
 # Dateien mit Konstrukten, die sqlfluffs Postgres-Dialekt (noch) nicht parst, obwohl
 # sie valides PostgreSQL sind. Korrektheit gated der Dry-Run-Deploy, nicht der Lint.
 SKIP=(
+   "db/database/00.preflight.create.sql" # DO $$ ... END $$ (anonymer Block, RAISE EXCEPTION) -> sqlfluff PRS-Gap
    "db/database/08.create.role.rw.sql"   # CREATE ROLE ... CONNECTION LIMIT -1  -> sqlfluff PRS-Gap
 )
 
