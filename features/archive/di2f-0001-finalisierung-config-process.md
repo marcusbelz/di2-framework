@@ -1,7 +1,7 @@
 # di2f-0001: Finalisierung der Tabelle `config.process` (Umzug aus `log`)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** config (primär) · log (Strukturanpassung: FK + Renumbering)
 
 ## Problem / Motivation
@@ -137,7 +137,7 @@ Bewusst **schlank**: Die Prozeduren schreiben **keine** Execution/Component/Trac
 
 ## Abhängigkeiten
 - Requires: Schema `config` wird **vor** `log` deployt — durch die Runner-Reihenfolge
-  `helper → config → log → etl` ([db/scripts/deploy.sh:40](../db/scripts/deploy.sh#L40)) erfüllt.
+  `helper → config → log → etl` ([db/scripts/deploy.sh:40](../../db/scripts/deploy.sh#L40)) erfüllt.
 - Requires: Tabelle `log.execution` (für den Referenz-Check in `sp_del_process` und den Test).
 - Requires: `config.tf_set_modified()` (neu in diesem Feature) für `config.tr_u_process`.
 - Relates: di2f-0005 (DB-CI) — das psql-Testskript kann dort als Smoke-/Lint-Schritt aufgegriffen werden.
@@ -229,7 +229,7 @@ die Stammdaten-/Infrastruktur sich selbst protokollieren (zirkulär). Fehler wer
    der DB-CI (di2f-0005).
 
 ### G) Abhängigkeiten (Technik)
-- **Deploy-Reihenfolge** `helper → config → log → etl` ([db/scripts/deploy.sh:40](../db/scripts/deploy.sh#L40))
+- **Deploy-Reihenfolge** `helper → config → log → etl` ([db/scripts/deploy.sh:40](../../db/scripts/deploy.sh#L40))
   — config vor log; erfüllt.
 - **`log.execution`** muss existieren (Referenz-Check in `sp_del_process` + Test).
 - **Laufzeitrolle (RW):** braucht `USAGE` auf **beiden** Schemas (`config`, `log`), `SELECT` auf
@@ -414,15 +414,15 @@ Test). Keine ungenannten Nebeneffekte; Datei-Scope passt zum Feature.
 **Blocker:** keine.
 
 **Major:**
-1. **`sql.md`-Selbstwiderspruch** — [sql.md:63](../.claude/rules/sql.md#L63) sagt „ALWAYS use a
+1. **`sql.md`-Selbstwiderspruch** — [sql.md:63](../../.claude/rules/sql.md#L63) sagt „ALWAYS use a
    parameter or variable for the schema name — **NEVER hard code schema names**", aber die
    Procedure-Bodies referenzieren bewusst hardcodiert `config.process` / `log.execution` (z. B.
-   [005.sp_del_process.sql](../db/schemas/config/procedures/005.sp_del_process.sql)). Der Code ist
+   [005.sp_del_process.sql](../../db/schemas/config/procedures/005.sp_del_process.sql)). Der Code ist
    **korrekt** (psql interpoliert `:schema_*` nicht in Dollar-Quoting — empirisch belegt), aber die
    maßgebliche Regel muss eine **Ausnahme dokumentieren**: DDL nutzt `:schema_*`; im
    dollar-gequoteten Body wird schema-qualifiziert hardcodiert. Sonst führt die autoritative Regel
    künftige `/backend`/`/review` in die Irre. **Fix: doc-only in `sql.md`, kein Re-QA.**
-   → **BEHOBEN:** [sql.md:63 ff.](../.claude/rules/sql.md#L63) um die Body-Ausnahme (Dollar-Quoting)
+   → **BEHOBEN:** [sql.md:63 ff.](../../.claude/rules/sql.md#L63) um die Body-Ausnahme (Dollar-Quoting)
    ergänzt; DDL bleibt `:schema_*`, Body schema-qualifiziert hartkodiert.
 
 **Minor:**
@@ -431,7 +431,7 @@ Test). Keine ungenannten Nebeneffekte; Datei-Scope passt zum Feature.
    Komponenten-Logging → kein `GRANT SET ON PARAMETER`, BUG-0337). Sinnvoll, aber in
    `sql.md`/`procedures.md` nicht als zulässige Variante erwähnt. → kurz dokumentieren. (Das Literal
    enthält zudem den Schemanamen `config.` — selbes Thema wie Major #1.)
-3. **FK ohne explizites `ON DELETE`** — [001.execution.sql](../db/schemas/log/tables/001.execution.sql):
+3. **FK ohne explizites `ON DELETE`** — [001.execution.sql](../../db/schemas/log/tables/001.execution.sql):
    `confdeltype = NO ACTION`; Spec-Text nennt „RESTRICT". Funktional gleich (referenzierte Deletes
    abgewiesen, AK 13 ✅). → optional explizit `ON DELETE RESTRICT`.
 
@@ -488,11 +488,11 @@ _Minor:_
 1. **Backend-Sektion stale** — „Implementierte Schnittstellen" dokumentiert `sp_ins_process` noch als
    `(IN p_name varchar, INOUT p_id bigint)` (alte Reihenfolge); Code ist `(INOUT p_id bigint, IN
    p_name varchar)`. Reine Doku-Inkonsistenz (auch im Re-QA notiert). → triviale Korrektur.
-2. **Trailing Whitespace** — [005.sp_del_process.sql:52,93](../db/schemas/config/procedures/005.sp_del_process.sql),
-   [005.sp_upd_process.sql:70](../db/schemas/config/procedures/005.sp_upd_process.sql),
-   [005.sp_ins_process.sql:78](../db/schemas/config/procedures/005.sp_ins_process.sql) — Leerzeichen am
+2. **Trailing Whitespace** — [005.sp_del_process.sql:52,93](../../db/schemas/config/procedures/005.sp_del_process.sql),
+   [005.sp_upd_process.sql:70](../../db/schemas/config/procedures/005.sp_upd_process.sql),
+   [005.sp_ins_process.sql:78](../../db/schemas/config/procedures/005.sp_ins_process.sql) — Leerzeichen am
    Zeilenende (Leerzeilen bzw. `WHERE`/`SELECT`). Kosmetisch. → Cleanup.
-3. **Parameter-Doku „(OUT)"** — [005.sp_ins_process.sql:9](../db/schemas/config/procedures/005.sp_ins_process.sql):
+3. **Parameter-Doku „(OUT)"** — [005.sp_ins_process.sql:9](../../db/schemas/config/procedures/005.sp_ins_process.sql):
    der Parameter ist `INOUT`, die Doku schreibt „(OUT)". Intent (Rückgabe der neuen `id`) korrekt,
    Modus-Bezeichnung leicht ungenau. Optional.
 
@@ -521,7 +521,11 @@ der Signatur-Fix konsistent. Nächster Schritt: `/deploy dev`.
 | dev | 2026-06-11 | `25cf522` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün — Re-Deploy nach Konventions-Umbau |
 | int | 2026-06-12 | `c50260a` | „DB - deploy" (schema=all, env=int, Branch dev) | ✅ grün |
 | test | 2026-06-12 | `c50260a` | „DB - deploy" (schema=all, env=test, Branch dev) | ✅ grün |
+| prod | 2026-06-12 | `6290cd6` | „DB - deploy" (schema=all, env=prod, Branch main) | ✅ grün — Go-Live |
 
+- **Go-Live prod `6290cd6` (2026-06-12):** Stand von `main` (Merge `dev`→`main`, PR #4) nach prod
+  ausgerollt; Workflow „DB - deploy" grün. Gate erfüllt: Security-Audit 2026-06-12 grün (0 Critical /
+  0 High, 3 Mittel als Roadmap-/Daten-Items, Go-Live ✅ JA). Release-Tag `v1.0.0`.
 - **Promotion int + test `c50260a` (2026-06-12):** identischer Stand wie dev (Branch `dev`), nach
   int (interner Demo-Stand) und test (Pre-Prod) ausgerollt; beide Workflows grün. Nächstes Gate vor
   prod: `/security` (Audit muss aktuell + grün sein).
