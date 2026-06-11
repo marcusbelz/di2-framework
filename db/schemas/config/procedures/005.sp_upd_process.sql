@@ -2,6 +2,14 @@
 
 DROP PROCEDURE IF EXISTS :schema_config.sp_upd_process(bigint, varchar);
 
+-- --------------------------------------------------------------------------------
+-- Parameter
+-- --------------------------------------------------------------------------------
+--    p_id          bigint
+--       process-id of the process to be updated
+--    p_name        varchar
+--       new name of the process
+-- --------------------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE :schema_config.sp_upd_process
 (
     IN    p_id          bigint
@@ -10,11 +18,22 @@ CREATE OR REPLACE PROCEDURE :schema_config.sp_upd_process
 LANGUAGE plpgsql
 AS $procedure$
 DECLARE
+   -- --------------------------------------------------------------------------------
+   -- Common
+   -- --------------------------------------------------------------------------------
    l_component               varchar;
-   l_name                    varchar;
-   l_current_name            varchar;
+
+   -- --------------------------------------------------------------------------------
+   -- Error Handling
+   -- --------------------------------------------------------------------------------
    l_error_message           text;
    l_error_code              text;
+
+   -- --------------------------------------------------------------------------------
+   -- Workload
+   -- --------------------------------------------------------------------------------
+   l_name                    varchar;
+   l_current_name            varchar;
 BEGIN
    -- --------------------------------------------------------------------------------
    -- Get name of function/procedure
@@ -47,16 +66,23 @@ BEGIN
    -- Workload
    -- --------------------------------------------------------------------------------
    BEGIN
-      SELECT name
-      INTO   l_current_name
-      FROM   config.process
-      WHERE  id = p_id;
+
+      SELECT 
+         name
+      INTO
+         l_current_name
+      FROM
+         config.process
+      WHERE
+         id = p_id;
 
       IF NOT FOUND THEN
+
          l_error_message := format($$%1$s: Prozess mit id=%2$s existiert nicht$$, l_component, p_id);
          l_error_code    := 'no_data_found';
 
          RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
+
       END IF;
 
       l_name := trim(p_name);
@@ -66,14 +92,18 @@ BEGIN
       END IF;
 
       UPDATE config.process
-      SET    name = l_name
-      WHERE  id = p_id;
+         SET
+            name = l_name
+      WHERE
+         id = p_id;
 
    EXCEPTION WHEN unique_violation THEN
+
       l_error_message := format($$%1$s: Name '%2$s' wird bereits von einem anderen Prozess verwendet$$, l_component, l_name);
       l_error_code    := 'unique_violation';
 
       RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
+
    END;
 
 END;

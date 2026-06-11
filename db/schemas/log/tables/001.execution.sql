@@ -31,6 +31,20 @@ ALTER TABLE :schema_log.execution ADD  CONSTRAINT fk_execution_process_id FOREIG
 
 CREATE INDEX IF NOT EXISTS ix_execution_process_id ON :schema_log.execution (process_id);
 
-COMMENT ON TABLE :schema_log.execution IS 'Protokollierung je Prozessausfuehrung (Prozessebene).';
+-- --------------------------------------------------------------------------------
+-- Comments
+-- --------------------------------------------------------------------------------
+COMMENT ON TABLE  :schema_log.execution IS 'Protokollierung je Prozessausfuehrung (Prozessebene).';
+COMMENT ON COLUMN :schema_log.execution.process_id IS 'FK -> config.process: ausgeführter Prozess.';
+COMMENT ON COLUMN :schema_log.execution.start_on IS 'Startzeitpunkt der Prozessausführung.';
+COMMENT ON COLUMN :schema_log.execution.end_on IS 'Endzeitpunkt der Prozessausführung (NULL, solange laufend).';
+COMMENT ON COLUMN :schema_log.execution.delta_start IS 'Startzeitpunkt des Delta-/Inkrement-Zeitfensters.';
+COMMENT ON COLUMN :schema_log.execution.delta_end IS 'Endzeitpunkt des Delta-/Inkrement-Zeitfensters.';
+COMMENT ON COLUMN :schema_log.execution.user_name IS 'Benutzer der Ausführung.';
+COMMENT ON COLUMN :schema_log.execution.machine IS 'Host/Maschine, auf der die Ausführung lief.';
+COMMENT ON COLUMN :schema_log.execution.instance IS 'Instanz-/Umgebungskennung.';
+COMMENT ON COLUMN :schema_log.execution.version IS 'Version der ausführenden Anwendung.';
+COMMENT ON COLUMN :schema_log.execution.state IS 'Aktueller Status der Ausführung.';
+COMMENT ON COLUMN :schema_log.execution.success IS 'Erfolgreich abgeschlossen (true/false; NULL = laufend).';
 
 \echo "## CREATE TABLE :schema_log.execution - DONE"

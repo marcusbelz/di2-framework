@@ -21,6 +21,16 @@ ALTER TABLE :schema_log.export_file OWNER TO :schema_owner;
 ALTER TABLE :schema_log.export_file DROP CONSTRAINT IF EXISTS fk_export_file_execution_id;
 ALTER TABLE :schema_log.export_file ADD  CONSTRAINT fk_export_file_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
 
-COMMENT ON TABLE :schema_log.export_file IS 'Informationen zu exportierten Dateien.';
+-- --------------------------------------------------------------------------------
+-- Comments
+-- --------------------------------------------------------------------------------
+COMMENT ON TABLE  :schema_log.export_file IS 'Informationen zu exportierten Dateien.';
+COMMENT ON COLUMN :schema_log.export_file.execution_id IS 'FK -> log.execution: zugehörige Prozessausführung.';
+COMMENT ON COLUMN :schema_log.export_file.file_name_export IS 'Pfad/Name der Exportdatei.';
+COMMENT ON COLUMN :schema_log.export_file.exported_rows IS 'Anzahl exportierter Zeilen.';
+COMMENT ON COLUMN :schema_log.export_file.error_rows IS 'Anzahl fehlerhafter/abgewiesener Zeilen.';
+COMMENT ON COLUMN :schema_log.export_file.created IS 'Erstellzeitpunkt der Datei (Dateisystem).';
+COMMENT ON COLUMN :schema_log.export_file.file_size IS 'Dateigröße in Bytes.';
+COMMENT ON COLUMN :schema_log.export_file.export_date IS 'Zeitpunkt des Exports.';
 
 \echo "## CREATE TABLE :schema_log.export_file - DONE"
