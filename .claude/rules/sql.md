@@ -1,5 +1,9 @@
 # SQL rules
 
+> **Übergreifender** SQL-Styleguide (Naming, Alignment, File-Numbering, generische Layout-Prinzipien).
+> Die **objekt-spezifischen** Regeln sind in die jeweiligen Objekt-Dateien ausgelagert — siehe
+> [Objekt-spezifische Regeln (ausgelagert)](#objekt-spezifische-regeln-ausgelagert) am Ende.
+
 - [SQL](#sql)
   - [Naming Conventions](#naming-conventions)
     - [Prefixes](#prefixes)
@@ -9,15 +13,8 @@
     - [Examples](#examples)
     - [Tabellarisches Alignment (Parameter, Variablen, JOINs)](#tabellarisches-alignment-parameter-variablen-joins)
   - [File Naming & Numbering](#file-naming--numbering)
-  - [Single Responsibility](#single-responsibility)
-  - [Fehler-Messages & `format()`](#fehler-messages--format)
-  - [Foreign Keys](#foreign-keys)
   - [Layout & Formatierung (DDL/DML)](#layout--formatierung-ddldml)
-  - [Structure Conventions](#structure-conventions)
-    - [Stored Procedure](#stored-procedure)
-    - [Stored Function](#stored-function)
-    - [Trigger Function](#trigger-function)
-    - [Trigger](#trigger)
+- [Objekt-spezifische Regeln (ausgelagert)](#objekt-spezifische-regeln-ausgelagert)
 
 # SQL
 
@@ -117,6 +114,37 @@ DECLARE
    l_error_message           text;
 ```
 
+**Gruppierung im `DECLARE`-Block:** Bei mehr als einer Handvoll Variablen werden die Deklarationen
+unter **3-zeiligen Banner-Sub-Headern** nach Rolle gruppiert (gleiche Banner-Form wie die
+Section-Kommentare, siehe [Inline-Kommentar-Blöcke](#inline-kommentar-blöcke-section-kommentare)) —
+feste Reihenfolge, leere Gruppen entfallen:
+
+1. `-- Common` — Infrastruktur-Variablen (`l_component`, ggf. `l_context` / `l_source`).
+2. `-- Error Handling` — `l_error_message`, `l_error_code`.
+3. `-- Workload` — die fachlichen Arbeits-Variablen (Lookups, Zwischenergebnisse).
+
+Die Gruppen spiegeln die Body-Abschnitte
+([Get name / Check parameter / Workload](procedures.md#body-struktur-get-name--check-parameter--workload)) wider.
+
+```sql
+DECLARE
+   -- --------------------------------------------------------------------------------
+   -- Common
+   -- --------------------------------------------------------------------------------
+   l_component               varchar;
+
+   -- --------------------------------------------------------------------------------
+   -- Error Handling
+   -- --------------------------------------------------------------------------------
+   l_error_message           text;
+   l_error_code              text;
+
+   -- --------------------------------------------------------------------------------
+   -- Workload
+   -- --------------------------------------------------------------------------------
+   l_name                    varchar;
+```
+
 **JOINs**:
 
 - Immer voll qualifiziert: **`INNER JOIN`** statt nacktem `JOIN`; ebenso `LEFT JOIN` / `RIGHT JOIN` / `FULL JOIN` ausschreiben.
@@ -168,94 +196,6 @@ Bewusst **nicht** ein globaler `001., 002., 003., …`-Counter über alle Proced
 
 Die Lade-Reihenfolge bestimmt der **Deploy-Runner** (`db/scripts/`): nach Sektion (Tables → Policies → Functions → Procedures → Triggers → Views → Data), innerhalb der Sektion nach Nummer. **Die Nummer ist Sortier-Helfer + Tabellen-Gruppen-Indikator, keine globale Sequenz.**
 
-## Single Responsibility
-
-- Each `CALL` statement delegates exactly **one** domain action to an `sp_` procedure
-- One procedure = one responsibility (e.g. update status, set map access)
-
----
-
-## Fehler-Messages & `format()`
-
-Jede Message und jeder Error-Code, die an `RAISE EXCEPTION` (oder ein `RAISE WARNING`, das eine echte Message an den Client gibt) übergeben werden, werden **zuerst in separate Variablen gelegt** und erst dann ausgegeben. **Ausnahme:** diagnostische `RAISE NOTICE`-Traces (der `### procedure : %`-Eingangs-Trace und der `##### … SQLERRM`-Trace im `EXCEPTION`-Handler) bleiben einfaches Inline-`RAISE NOTICE` — sie sind Debug-Breadcrumbs, keine strukturierten Fehler-Messages. Hintergrund: keine hartkodierten Texte direkt am Funktions-/`RAISE`-Aufruf — der Code liest sich von oben nach unten (erst *was* geworfen wird, dann *dass* geworfen wird), und das `RAISE` bekommt nur noch Variablen.
-
-### Regeln
-
-- **Separate Variablen (PFLICHT):** `l_error_message text` für die Message und `l_error_code text` für den Error-Code (beide im DECLARE-Block). Kein Inline-Text am `RAISE`.
-- **Message über `format($$…$$, v1, v2, …)`:** Dollar-Quoting (`$$…$$`) als Template-Delimiter — dadurch bleiben die Hochkommas um Text-Werte **einfach** (`'%2$s'` statt `''%2$s''`). Sicher im Procedure-Body, weil der mit `$procedure$…$procedure$` quotet; nur falls eine Message literal `$$` enthalten müsste, einen benannten Tag wie `$msg$…$msg$` verwenden (Randfall).
-- **Nur indizierte Platzhalter:** `%1$s`, `%2$s`, `%3$s`, … — **niemals** der bare `%`. Gilt durchgängig, auch wenn jedes Argument nur einmal vorkommt; unverzichtbar, sobald ein Argument mehrfach in der Message steht (`%n$s` referenziert dasselbe Argument an mehreren Stellen, ohne es erneut zu übergeben).
-- **Text-Werte in einfachen Hochkommas** in der Message (`'%2$s'`), damit String-Werte (Namen, E-Mails, Identifier) visuell abgegrenzt sind. **Numerische Werte** (`bigint`, `int`, …) ohne Hochkommas. **Ausnahme: der Komponenten-Prefix** (`l_component`, vorne als Label) wird **nicht** gequotet.
-- **`RAISE EXCEPTION USING MESSAGE = …, ERRCODE = …;` einzeilig** — nimmt nur die Variablen entgegen, kein `'%'`-Platzhalter, kein Inline-String.
-- **ERRCODE erhalten, nie erfinden:** den bestehenden ERRCODE exakt übernehmen. Hatte ein `RAISE EXCEPTION` im Original **keinen** ERRCODE, bleibt es ohne — `RAISE EXCEPTION USING MESSAGE = l_error_message;` (kein `l_error_code`, kein neu erfundener Code).
-
-### Beispiel
-
-```sql
-DECLARE
-   l_component       text;
-   l_error_message   text;
-   l_error_code      text;
-   -- ...
-BEGIN
-   -- ...
-   IF NOT l_can_edit THEN
-      l_error_message := format($$%1$s: actor='%2$s' ist weder Owner noch Editor von Projekt id=%3$s$$, l_component, p_actor_email, l_project_id);
-      l_error_code    := 'insufficient_privilege';
-
-      RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
-   END IF;
-```
-
-(`l_component` = Komponenten-Prefix → nicht gequotet; `p_actor_email` = Text-Wert → `'%2$s'`; `l_project_id` = numerisch → `%3$s` ohne Hochkommas.)
-
----
-
-## Foreign Keys
-
-- FK-Constraints benennen: `fk_<tabelle>_<spalte>`.
-- **Ablage: als separate `ALTER TABLE … ADD CONSTRAINT` NACH der Tabelle** (nicht inline im
-  `CREATE TABLE`), idempotent per `DROP CONSTRAINT IF EXISTS` + `ADD`, gruppiert unter
-  `-- Foreign keys` — siehe [Layout](#create-table--spalten--constraints).
-- `ON DELETE`-Verhalten bewusst wählen: `CASCADE` für abhängige Detail-Zeilen, `SET NULL` für
-  optionale Referenzen, sonst Default (Restrict).
-- Referenzierte Tabelle immer schema-qualifiziert über die Schema-Variable.
-- Natural Keys werden `UNIQUE`-Constraints (nicht der PK — der ist immer `id bigserial`); ebenfalls
-  als separates `ALTER TABLE … ADD CONSTRAINT` nach der Tabelle, gruppiert unter `-- Unique constraints`.
-- Audit-Spalten `created_by` / `modified_by` (nur dort, wo fachlich genutzt — v. a. `config`):
-  vom aufrufenden Prozess gesetzt — **nie** `CURRENT_USER` (das wäre nur die Verbindungsrolle,
-  nicht der fachliche Akteur). Datentyp/Länge siehe `tables.md`.
-
-Beispiel (`UNIQUE`/`FK` als separate `ALTER TABLE` nach der Tabelle — siehe [Layout](#create-table--spalten--constraints)):
-```sql
-CREATE TABLE IF NOT EXISTS :schema_name.example
-(
-    id           bigserial     NOT NULL
-   ,parent_id    bigint            NULL
-   ,name         varchar(200)  NOT NULL
-   ,created_on   timestamptz   NOT NULL DEFAULT now()
-   ,created_by   varchar(100)  NOT NULL
-   ,modified_on  timestamptz   NOT NULL DEFAULT now()
-   ,modified_by  varchar(100)  NOT NULL
-
-   ,CONSTRAINT pk_example  PRIMARY KEY (id)
-);
-ALTER TABLE :schema_name.example OWNER TO :schema_owner;
-
--- --------------------------------------------------------------------------------
--- Unique constraints
--- --------------------------------------------------------------------------------
-ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
-ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
-
--- --------------------------------------------------------------------------------
--- Foreign keys
--- --------------------------------------------------------------------------------
-ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
-ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
-```
-
----
-
 ## Layout & Formatierung (DDL/DML)
 
 > Aus den gold-standard-Dateien abgeleitet. Ergänzt das [Tabellarische Alignment](#tabellarisches-alignment-parameter-variablen-joins) (Parameter/Variablen/JOINs) um die Datei- und Statement-Struktur. Grundeinrückung app-weit **3 Spaces**.
@@ -264,7 +204,8 @@ ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KE
 
 - **Kopf:** erste Zeile `\echo "## CREATE <KIND> :schema_name.<name>"` (`<KIND>` = TABLE / PROCEDURE / FUNCTION / POLICIES / SEED / BACKFILL).
 - **Fuß:** `\echo "## CREATE <KIND> :schema_name.<name> - DONE"` (ersetzt das alte leere `\echo ''`).
-- **DROP:** `DROP …;`-Zeilen, dann eine Leerzeile, dann `CREATE OR REPLACE …`. (Trigger-Funktionen: kein DROP — siehe Structure conventions.)
+- **DROP:** `DROP …;`-Zeilen, dann eine Leerzeile, dann `CREATE OR REPLACE …`. (Trigger-Funktionen: kein DROP — siehe [trigger.md](trigger.md).)
+- **Parameter-Block:** bei Procedures/Functions **mit Parametern** zwischen `DROP …;` und `CREATE OR REPLACE …` der `-- Parameter`-Dokublock — siehe [Parameter-Dokumentation in procedures.md](procedures.md#parameter-dokumentation-inline-block-vor-create).
 - **OWNER:** `ALTER … OWNER TO :schema_owner;` direkt nach dem Objekt-Body (Tabellen: nach `);`; Procedures/Functions: nach `$…$;`).
 - **Beschreibungs-Kommentare ans Datei-Ende** als Banner-Blöcke, nicht mehr inline über dem Objekt:
   - Trenner: `--` + 80 Bindestriche.
@@ -290,48 +231,6 @@ eingerückten Blöcken (Procedure-Body) steht die Grundeinrückung (3 Spaces) vo
 `(` und `)` stehen je auf eigener Zeile bei: CREATE TABLE, Procedure-/Function-Signatur, INSERT-Spaltenliste, `VALUES`, CTE-Body, mehrzeiligen Subqueries (`EXISTS (` / `NOT EXISTS (`), Policy-`USING (` / `WITH CHECK (`.
 
 **Ausnahme — triviale Konstanten-Bodies bleiben einzeilig:** `FOR UPDATE USING (false);`, `FOR DELETE USING (true);`, `WITH CHECK (true)`. Erst wenn der Body ein echter Ausdruck/Subquery ist, kommen `(`/`)` auf eigene Zeilen.
-
-### CREATE TABLE — Spalten & Constraints
-
-- Leading-Comma: erstes Element 4 Spaces, Folgeelemente `   ,` (3 + Komma).
-- Tabellarische Spalten **Name | Typ | Nullability | Default**:
-  - `NULL` ist vertikal ausgerichtet; das optionale `NOT ` sitzt in der 4-Zeichen-Spalte links davor (alle `NULL` fluchten, mit oder ohne `NOT`).
-  - `DEFAULT <wert>` folgt direkt nach `NOT NULL` / `NULL`.
-  - Overflow: Namen, die über die Namensspalte hinauslaufen, brechen das Alignment nur für ihre eigene Zeile.
-- **Inline im `CREATE TABLE` (innerhalb der `( … )`): nur `PRIMARY KEY` und `CHECK`.**
-  - **PK explizit als benannter Constraint** `CONSTRAINT pk_<table> PRIMARY KEY (…)` als **letztes** Element des Blocks — **nie** als Spalten-Inline (`id bigserial PRIMARY KEY`).
-  - `CHECK`-Constraints (falls vorhanden) ebenfalls inline, durch Leerzeile abgesetzt; Ausdrücke untereinander ausgerichtet.
-- **`UNIQUE` und `FOREIGN KEY` stehen NICHT im `CREATE TABLE`,** sondern als separate `ALTER TABLE`-Statements **nach** dem `ALTER … OWNER` — nach Familie gruppiert: erst alle `UNIQUE` unter `-- Unique constraints`, dann alle `FOREIGN KEY` unter `-- Foreign keys`.
-  - **Idempotenz:** je Constraint `ALTER TABLE … DROP CONSTRAINT IF EXISTS <name>;` direkt gefolgt von `ALTER TABLE … ADD CONSTRAINT <name> …;` (PostgreSQL kennt kein `ADD CONSTRAINT IF NOT EXISTS`; ein `DO`-Guard scheidet aus, weil psql `:schema_*` im Dollar-Quoting nicht interpoliert). **Trade-off:** das Re-Add validiert FKs bzw. baut UNIQUE-Indizes bei **jedem** Deploy neu — bei sehr großen Tabellen bewusst einsetzen.
-- Audit-Spalten unter `-- Audit`, durch Leerzeile abgesetzt.
-- **Reihenfolge nach `ALTER … OWNER`:** `-- Unique constraints` → `-- Foreign keys` → Indizes → `ENABLE`/`FORCE ROW LEVEL SECURITY` → `COMMENT`. `CREATE … INDEX` linearisiert (`CREATE [UNIQUE] INDEX IF NOT EXISTS <name> ON <table> (…) [WHERE …];`).
-
-```sql
-CREATE TABLE IF NOT EXISTS :schema_name.example
-(
-    id              bigserial     NOT NULL
-   ,name            varchar(200)  NOT NULL
-   ,parent_id       bigint            NULL
-   ,is_active       boolean       NOT NULL DEFAULT true
-
-   ,CONSTRAINT pk_example  PRIMARY KEY (id)
-
-   ,CONSTRAINT chk_example_name  CHECK (length(trim(name)) > 0)
-);
-ALTER TABLE :schema_name.example OWNER TO :schema_owner;
-
--- --------------------------------------------------------------------------------
--- Unique constraints
--- --------------------------------------------------------------------------------
-ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
-ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
-
--- --------------------------------------------------------------------------------
--- Foreign keys
--- --------------------------------------------------------------------------------
-ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
-ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
-```
 
 ### SELECT / DML — vertikales Layout
 
@@ -371,178 +270,18 @@ FROM
    CTE_effective_states;
 ```
 
-### INSERT / Seed
+# Objekt-spezifische Regeln (ausgelagert)
 
-- `INSERT INTO <table>` dann `(` Spaltenliste `)`, dann `VALUES` dann `(` Werteliste `)` — Parens auf eigenen Zeilen, Leading-Comma. (Kurze Spaltenliste darf einzeilig hinter `INSERT INTO <table>` stehen — siehe Seed-Beispiel.)
-- Mehrzeilige Seed-`VALUES`: Tupel Leading-Comma, eines pro Zeile; Tupel-Elemente in Spalten ausgerichtet (String-Spalten gepolstert).
-- `ON CONFLICT (...) DO UPDATE` → `SET` → Leading-Comma-Zuweisungen.
+sql.md ist der **übergreifende** Styleguide (Naming, Alignment, File-Numbering, generische
+Layout-Prinzipien). Die **objekt-spezifischen** Regeln stehen in den jeweiligen Objekt-Dateien —
+dort nachschlagen, je nachdem was gebaut wird. Jede Objekt-Datei verweist für das Übergreifende
+zurück auf sql.md; **bei Widerspruch gilt sql.md.**
 
-```sql
-INSERT INTO :schema_name.example (slug, name, is_active, created_by, modified_by)
-VALUES
-    ('a', 'Alpha', true,  '<system>', '<system>')
-   ,('b', 'Beta',  false, '<system>', '<system>')
-ON CONFLICT (slug) DO UPDATE
-SET
-    name        = EXCLUDED.name
-   ,is_active   = EXCLUDED.is_active
-   ,modified_on = now();
-```
-
-## Structure conventions
-
-### Body-Struktur: Get name / Check parameter / Workload
-
-> Jeder Procedure-/Function-Body gliedert sich in drei feste, je mit 80-Bindestrich-Banner eingeleitete Abschnitte. Die letzten beiden liegen in einem **eigenen `BEGIN … END;`-Sub-Block** — rein zur optischen Gruppierung und zum **Zuklappen** im Editor (Fokus auf einen Teil). Die Sub-Blöcke brauchen kein eigenes `DECLARE`/`EXCEPTION` (reine Gruppierungs-Blöcke), dürfen aber eins haben, wenn nötig.
-
-1. **`Get name of function/procedure`** — `SET LOCAL lc_messages TO 'C'`, `GET DIAGNOSTICS … PG_CONTEXT`, `l_component := substring(…)` (+ optionaler `RAISE NOTICE`-Eingangs-Trace). Liegt direkt im äußeren `BEGIN` (kein Sub-Block).
-   > **Grant-Voraussetzung (BUG-0337):** `lc_messages` ist ein **SUSET-GUC** — nur Superuser oder eine Rolle mit explizitem `GRANT SET ON PARAMETER lc_messages` darf ihn setzen. Da die Procedures mit **Caller-Rechten** laufen (kein `SECURITY DEFINER`), muss die Laufzeit-Rolle dieses Recht tragen, sonst wirft die allererste Body-Zeile `42501 permission denied to set parameter "lc_messages"`. Der Grant ist in `db/database/08.create.role.rw.sql` als **kommentierter Hinweis** hinterlegt — erst aktivieren (`GRANT SET ON PARAMETER lc_messages TO :role_rw;`), wenn diese Logging-Konvention tatsächlich übernommen wird.
-2. **`Check parameter`** — `BEGIN … END;`-Sub-Block mit **allen Eingangs-/Guard-Checks am Anfang** (Parameter-Validierung, Actor-Context, Permission-Vorbedingungen). Verstoß → `RAISE` nach dem format()-Pattern.
-3. **`Workload`** — `BEGIN … END;`-Sub-Block mit der eigentlichen Arbeit (Lookups, Mutationen, RETURN).
-
-**Reihenfolge-Pflicht:** Guards stehen vor der Mutation — der `Check parameter`-Block kommt immer vor dem `Workload`-Block. Beim Umbau bestehender Procs darf die Reihenfolge sicherheitsrelevanter Checks (Permission!) **nie** hinter die Mutation rutschen.
-
-**Umbau-Methode (kein Umsortieren):** Es gibt genau **eine Grenze** zwischen dem reinen Eingangs-Validierungs-Prefix und dem ersten Lookup-/Work-Statement. Die `BEGIN … END;`-Blöcke wrappen die bestehenden Statements **in-place** — Statements werden **nie** relativ zueinander verschoben. Sind Guards und Lookups interleaved (z. B. Permission-Check braucht ein zuvor gefetchtes `project_id`), liegt die Grenze nach dem letzten reinen Eingangs-Check; alle lookup-abhängigen Checks bleiben im `Workload`-Block. Lieber ein kleinerer `Check parameter`-Block als eine riskante Umsortierung.
-
-**Leere Blöcke vermeiden:** ein `BEGIN END;` ohne Statement ist in PL/pgSQL ein Syntaxfehler — mindestens `NULL;` oder echte Statements.
-
-Reine Validator-Functions ohne Fehler-`RAISE` (z. B. `fn_validate_*`, die nur Marker-Strings zurückgeben) lassen den `Get name`-Abschnitt weg; die `Check parameter`/`Workload`-Trennung ist dort optional.
-
-### Stored Procedure
-```sql
-\echo "## CREATE PROCEDURE :schema_name.sp_upd_table_status"
-
-DROP PROCEDURE IF EXISTS :schema_name.sp_upd_table_status(varchar, bigint);
-
-CREATE OR REPLACE PROCEDURE :schema_name.sp_upd_table_status
-(
-    INOUT p_parameter1        varchar
-   ,IN    p_parameter2        bigint
-)
-LANGUAGE plpgsql
-AS $procedure$
-DECLARE
-   l_context                 varchar;
-   l_component               varchar;
-   l_source                  varchar(7);
-   l_error_message           text;
-   l_error_code              text;
-BEGIN
-   -- --------------------------------------------------------------------------------
-   -- Get name of function/procedure
-   -- --------------------------------------------------------------------------------
-   SET LOCAL lc_messages TO 'C';   -- erzwingt englische Server-Meldungen für diese Transaktion
-   GET DIAGNOSTICS l_context = PG_CONTEXT;
-   l_component := substring(l_context from 'function (.*?)\(');
-   l_source    := 'plpgsql';
-
-   RAISE NOTICE '### procedure : %', l_component;
-
-   -- --------------------------------------------------------------------------------
-   -- Check parameter
-   -- --------------------------------------------------------------------------------
-   BEGIN
-      -- alle Eingangs-/Guard-Checks (Parameter-Validierung, Actor-Context, Permission).
-      -- Verstoss -> Fehler über separate Variablen + format($$…$$):
-      -- l_error_message := format($$%1$s: Beispiel-Fehler für id=%2$s$$, l_component, p_parameter2);
-      -- l_error_code    := 'invalid_parameter_value';
-      -- RAISE EXCEPTION USING MESSAGE = l_error_message, ERRCODE = l_error_code;
-      NULL;
-   END;
-
-   -- --------------------------------------------------------------------------------
-   -- Workload
-   -- --------------------------------------------------------------------------------
-   BEGIN
-      -- eigentliche Arbeit (Lookups, Mutationen)
-      NULL;
-   END;
-
-END;
-$procedure$;
-
-ALTER PROCEDURE :schema_name.sp_upd_table_status(varchar, bigint) OWNER TO :schema_owner;
-
-\echo "## CREATE PROCEDURE :schema_name.sp_upd_table_status - DONE"
-```
-
-### Stored Function
-```sql
-\echo "## CREATE FUNCTION :schema_name.fn_is_null_or_empty"
-
-DROP FUNCTION IF EXISTS :schema_name.fn_is_null_or_empty(varchar, bigint);
-
-CREATE OR REPLACE FUNCTION :schema_name.fn_is_null_or_empty
-(
-    IN    p_parameter1        varchar
-   ,IN    p_parameter2        bigint
-)
-RETURNS varchar
-LANGUAGE plpgsql
-AS $function$
-DECLARE
-   l_returnvalue             varchar;
-BEGIN
-
-   -- Logic
-
-   RETURN l_returnvalue;
-
-EXCEPTION WHEN others THEN
-   RAISE NOTICE '##### %', SQLERRM;
-   RETURN NULL::varchar;
-END;
-$function$;
-
-ALTER FUNCTION :schema_name.fn_is_null_or_empty(varchar, bigint) OWNER TO :schema_owner;
-
-\echo "## CREATE FUNCTION :schema_name.fn_is_null_or_empty - DONE"
-```
-
----
-### Trigger Function
-
-> **Kein `DROP FUNCTION` für Trigger-Funktionen.** Trigger hängen an der Funktion; ein `DROP FUNCTION IF EXISTS` würde beim Re-Run mit `cannot drop function ... because other objects depend on it (trigger ...)` abbrechen. `CREATE OR REPLACE FUNCTION` allein ist trigger-safe, solange die Signatur stabil bleibt — bei Trigger-Funktionen mit `RETURNS TRIGGER` ohne Parameter ist sie das per Definition. Für **non-trigger** Stored Functions (siehe „Stored Function" oben) bleibt das `DROP FUNCTION IF EXISTS … (signatur);` + `CREATE OR REPLACE FUNCTION`-Pattern korrekt.
-
-```sql
-\echo "## CREATE FUNCTION :schema_name.tf_table()"
-
-CREATE OR REPLACE FUNCTION :schema_name.tf_table()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $triggerfunction$
-BEGIN
-
-   -- Logic
-
-END;
-$triggerfunction$;
-
-ALTER FUNCTION :schema_name.tf_table() OWNER TO :schema_owner;
-
-\echo "## CREATE FUNCTION :schema_name.tf_table() - DONE"
-```
-
----
-
-### Trigger
-```sql
-\echo "## CREATE TRIGGER tr_iud_table"
-
-DROP TRIGGER IF EXISTS tr_iud_table ON :schema_name.log_execution;
-
-CREATE TRIGGER tr_iud_table
-BEFORE INSERT OR UPDATE OR DELETE ON :schema_name.log_execution
-FOR EACH ROW
-   EXECUTE PROCEDURE :schema_name.tf_table();
-
-\echo "## CREATE TRIGGER tr_iud_table - DONE"
-```
-
-- Check `TG_OP` with `IF / ELSEIF / ELSE` — always cover all three branches
-- `ELSE` → `RETURN NULL` (no implicit fall-through)
-- On INSERT: pass `NEW.<column>`, `RETURN NEW`
-- On DELETE: pass `OLD.<column>`, `RETURN OLD`
-- Always pass `TG_OP` as the first argument to called procedures
-
----
+| Objekttyp | Regel-Datei | enthält u. a. |
+|---|---|---|
+| Tabellen | [tables.md](tables.md) | CREATE-TABLE-Layout, Foreign Keys / Unique, Comments (Tabelle & Spalten), INSERT/Seed, Datentypen, Audit-Spalten, RLS |
+| Prozeduren | [procedures.md](procedures.md) | Parameter-Reihenfolge (ID zuerst), Parameter-Dokumentation, Body-Struktur, Fehler-Messages & `format()`, Single Responsibility, Procedure-Skelett |
+| Funktionen | [functions.md](functions.md) | Function-Skelett, Volatilität; geteilte Body-Regeln via Verweis auf procedures.md |
+| Trigger | [trigger.md](trigger.md) | Trigger-/Trigger-Function-Skelett, `TG_OP`-Logik |
+| Views | [views.md](views.md) | View-Konventionen |
+| Policies / RLS | [policies.md](policies.md) | Row-Level-Security-Policies |

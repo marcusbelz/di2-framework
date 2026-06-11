@@ -32,10 +32,12 @@ Per `AskUserQuestion`: Welche Rechte/Rollen? Nebenläufige Ausführung? Validier
   - Stammdaten: `db/schemas/config/data/…`, `db/schemas/log/data/…`
   - DB/Schema/Rollen-Setup: `db/database/`
 - **Konventionen verbindlich einhalten** (nicht hier duplizieren):
-  - **Zuerst `.claude/rules/sql.md` lesen** — maßgeblicher SQL-Styleguide (Naming, Alignment,
-    Dollar-Quoting, `format()`-Fehler, Body-Struktur Get name/Check parameter/Workload). Bei
-    Widerspruch gilt `sql.md`. Schema-Variablen im Framework: `:schema_config`/`:schema_etl`/
-    `:schema_helper`/`:schema_log` + `:schema_owner` (nicht `:schema_app_*`).
+  - **Zuerst `.claude/rules/sql.md` lesen** — übergreifender SQL-Styleguide (Naming, tabellarisches
+    Alignment, Dollar-Quoting, File Naming & Numbering, generisches Layout). Bei Widerspruch gilt
+    `sql.md`. Objekt-spezifisches (CREATE-TABLE-Layout, `format()`-Fehler, Body-Struktur Get name/
+    Check parameter/Workload, Skelette) steht in den Objekt-Dateien unten. Schema-Variablen im
+    Framework: `:schema_config`/`:schema_etl`/`:schema_helper`/`:schema_log` + `:schema_owner`
+    (nicht `:schema_app_*`).
   - Tabellen → `.claude/rules/tables.md`
   - Prozeduren → `.claude/rules/procedures.md`
   - Funktionen → `.claude/rules/functions.md`
