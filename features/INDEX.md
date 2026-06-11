@@ -17,7 +17,6 @@
 
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
-| di2f-0005 | DB-CI — Dry-Run-Deploy + Lint (Required-Gate) | Geplant | [di2f-0005-db-ci-dry-run-deploy-lint.md](di2f-0005-db-ci-dry-run-deploy-lint.md) | 2026-06-09 |
 | di2f-0006 | DB-Versionierung (`config.db_version` Historie) | Geplant | [di2f-0006-config-db-version.md](di2f-0006-config-db-version.md) | 2026-06-12 |
 
 <!-- Add features above this line -->
