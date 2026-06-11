@@ -60,8 +60,10 @@
 
 ### Common
 - ALWAYS **snake_case**
-- ALWAYS use a parameter or variable for the schema name — NEVER hard code schema names
+- Schema-Name in **DDL** (außerhalb von Dollar-Quoting): immer über die Variable, **nie** hartkodiert
+  — gilt für `CREATE`/`DROP`/`ALTER`/`OWNER`, FK-`REFERENCES`, `\echo` usw.
   - **Framework:** die konkreten Schema-Variablen sind `:schema_config` / `:schema_etl` / `:schema_helper` / `:schema_log`, der Schema-Owner ist `:schema_owner` (siehe `db/config/*.env.sql`). In den Beispielen unten steht `:schema_name` **stellvertretend** für die jeweils konkrete Schema-Variable.
+  - **Ausnahme — Prozedur-/Funktions-Body (Dollar-Quoting):** psql interpoliert `:schema_*` **nicht** innerhalb von `$procedure$…$procedure$` / `$function$…$function$` (Syntaxfehler `at or near ":"`). Objektreferenzen im Body werden daher **schema-qualifiziert hartkodiert** (`config.process`, `log.execution`). Das ist zulässig, weil die vier Schemanamen über **alle** Umgebungen fix sind (`db/config/*.env.sql` setzt sie konstant); einzig ein globales Schema-Rename erfordert ein `grep`-Replace der Bodies. Voll qualifizierte Body-Referenzen statt `SET search_path` — Letzteres nur, wenn unqualifizierte Namen unvermeidbar sind.
 - ALWAYS use **singular** table names (`user`, `project`, `task` — never `users`, `projects`, `tasks`). Applies to the table name itself; foreign-key column names follow naturally (`user_id`, not `users_id`).
 - ALWAYS suffix timestamp columns with **`_on`**, never `_at` (`created_on`, `modified_on`, `deleted_on`, `last_login_on`, `first_seen_on`). The TypeScript camelCase mapping uses the same suffix (`createdOn`, `lastLoginOn`).
 - ALWAYS give each table a surrogate primary key column **`id bigserial NOT NULL`** with `CONSTRAINT pk_<table> PRIMARY KEY (id)`. Natural keys (composite or otherwise) become **`UNIQUE` constraints**, not the PK. Applies to all tables, including lookup / Stammdaten tables and existing tables — existing deployed tables are dropped + recreated rather than data-migrated. Where a row needs to carry an external identifier, it lives in its own `UNIQUE` column (e.g. `external_ref varchar UNIQUE NOT NULL`), separate from the surrogate `id`.

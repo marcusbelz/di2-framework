@@ -378,6 +378,8 @@ Test). Keine ungenannten Nebeneffekte; Datei-Scope passt zum Feature.
    maßgebliche Regel muss eine **Ausnahme dokumentieren**: DDL nutzt `:schema_*`; im
    dollar-gequoteten Body wird schema-qualifiziert hardcodiert. Sonst führt die autoritative Regel
    künftige `/backend`/`/review` in die Irre. **Fix: doc-only in `sql.md`, kein Re-QA.**
+   → **BEHOBEN:** [sql.md:63 ff.](../.claude/rules/sql.md#L63) um die Body-Ausnahme (Dollar-Quoting)
+   ergänzt; DDL bleibt `:schema_*`, Body schema-qualifiziert hartkodiert.
 
 **Minor:**
 2. **Lean Get-name-Variante undokumentiert** — die Procedures setzen `l_component` als Literal und
