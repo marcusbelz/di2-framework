@@ -428,3 +428,20 @@ Keine Lücke in beide Richtungen (keine ungenannten Nebeneffekte; kein Data/Seed
 ### Empfehlung
 **Approve** — nur Minor, keine davon blockierend. Die drei Minors können vor dem Deploy aufgeräumt
 oder als Follow-up geführt werden. Nächster Schritt: `/deploy dev`.
+
+---
+
+## Deployment
+
+| Env | Datum | Branch | Commit | Status |
+|-----|-------|--------|--------|--------|
+| dev | 2026-06-12 | `dev` | `2988eba` | ✅ ausgerollt |
+| int | 2026-06-12 | `dev` | `2988eba` | ✅ ausgerollt |
+
+- **Stub-Migration:** Vor dem Deploy war der alte `db_version`-Stub (`release_version`-PK +
+  `internal_version`) auf den Umgebungen vorhanden; per „DB - clean" (config) + „DB - deploy" (all)
+  abgeräumt und neu aufgebaut (inkl. Wiederherstellung des `log.execution → config.process`-FK durch
+  den `all`-Deploy).
+- **Verbleibend:** `test` (Pre-Prod, Abnahme) ausstehend; `prod` erst nach grünem `/security`-Gate.
+- Offene Review-Minors (Parameter-Doku-Sprache, optionaler `git_commit`-Längencheck, Spec-Doku-Nit)
+  weiterhin nicht-blockierend offen.
