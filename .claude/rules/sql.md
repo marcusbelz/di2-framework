@@ -211,15 +211,19 @@ BEGIN
 ## Foreign Keys
 
 - FK-Constraints benennen: `fk_<tabelle>_<spalte>`.
+- **Ablage: als separate `ALTER TABLE … ADD CONSTRAINT` NACH der Tabelle** (nicht inline im
+  `CREATE TABLE`), idempotent per `DROP CONSTRAINT IF EXISTS` + `ADD`, gruppiert unter
+  `-- Foreign keys` — siehe [Layout](#create-table--spalten--constraints).
 - `ON DELETE`-Verhalten bewusst wählen: `CASCADE` für abhängige Detail-Zeilen, `SET NULL` für
   optionale Referenzen, sonst Default (Restrict).
 - Referenzierte Tabelle immer schema-qualifiziert über die Schema-Variable.
-- Natural Keys werden `UNIQUE`-Constraints (nicht der PK — der ist immer `id bigserial`).
+- Natural Keys werden `UNIQUE`-Constraints (nicht der PK — der ist immer `id bigserial`); ebenfalls
+  als separates `ALTER TABLE … ADD CONSTRAINT` nach der Tabelle, gruppiert unter `-- Unique constraints`.
 - Audit-Spalten `created_by` / `modified_by` (nur dort, wo fachlich genutzt — v. a. `config`):
   vom aufrufenden Prozess gesetzt — **nie** `CURRENT_USER` (das wäre nur die Verbindungsrolle,
   nicht der fachliche Akteur). Datentyp/Länge siehe `tables.md`.
 
-Beispiel:
+Beispiel (`UNIQUE`/`FK` als separate `ALTER TABLE` nach der Tabelle — siehe [Layout](#create-table--spalten--constraints)):
 ```sql
 CREATE TABLE IF NOT EXISTS :schema_name.example
 (
@@ -231,13 +235,17 @@ CREATE TABLE IF NOT EXISTS :schema_name.example
    ,modified_on  timestamptz   NOT NULL DEFAULT now()
    ,modified_by  varchar(100)  NOT NULL
 
-   ,CONSTRAINT pk_example            PRIMARY KEY (id)
-
-   ,CONSTRAINT uq_example_name       UNIQUE      (name)
-
-   ,CONSTRAINT fk_example_parent_id  FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE
+   ,CONSTRAINT pk_example  PRIMARY KEY (id)
 );
 ALTER TABLE :schema_name.example OWNER TO :schema_owner;
+
+-- Unique constraints
+ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
+ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
+
+-- Foreign keys
+ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
+ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
 ```
 
 ---
@@ -270,9 +278,13 @@ ALTER TABLE :schema_name.example OWNER TO :schema_owner;
   - `NULL` ist vertikal ausgerichtet; das optionale `NOT ` sitzt in der 4-Zeichen-Spalte links davor (alle `NULL` fluchten, mit oder ohne `NOT`).
   - `DEFAULT <wert>` folgt direkt nach `NOT NULL` / `NULL`.
   - Overflow: Namen, die über die Namensspalte hinauslaufen, brechen das Alignment nur für ihre eigene Zeile.
-- **Constraints** nach den Spalten, durch **Leerzeilen in Familien gruppiert** (PK · UNIQUE · CHECK · FK). Constraint-Name und -Typ (`PRIMARY KEY` / `UNIQUE` / `CHECK` / `FOREIGN KEY`) tabellarisch ausgerichtet; bei CHECKs die Ausdrücke untereinander.
+- **Inline im `CREATE TABLE` (innerhalb der `( … )`): nur `PRIMARY KEY` und `CHECK`.**
+  - **PK explizit als benannter Constraint** `CONSTRAINT pk_<table> PRIMARY KEY (…)` als **letztes** Element des Blocks — **nie** als Spalten-Inline (`id bigserial PRIMARY KEY`).
+  - `CHECK`-Constraints (falls vorhanden) ebenfalls inline, durch Leerzeile abgesetzt; Ausdrücke untereinander ausgerichtet.
+- **`UNIQUE` und `FOREIGN KEY` stehen NICHT im `CREATE TABLE`,** sondern als separate `ALTER TABLE`-Statements **nach** dem `ALTER … OWNER` — nach Familie gruppiert: erst alle `UNIQUE` unter `-- Unique constraints`, dann alle `FOREIGN KEY` unter `-- Foreign keys`.
+  - **Idempotenz:** je Constraint `ALTER TABLE … DROP CONSTRAINT IF EXISTS <name>;` direkt gefolgt von `ALTER TABLE … ADD CONSTRAINT <name> …;` (PostgreSQL kennt kein `ADD CONSTRAINT IF NOT EXISTS`; ein `DO`-Guard scheidet aus, weil psql `:schema_*` im Dollar-Quoting nicht interpoliert). **Trade-off:** das Re-Add validiert FKs bzw. baut UNIQUE-Indizes bei **jedem** Deploy neu — bei sehr großen Tabellen bewusst einsetzen.
 - Audit-Spalten unter `-- Audit`, durch Leerzeile abgesetzt.
-- Indizes / `ENABLE`/`FORCE ROW LEVEL SECURITY` nach dem `ALTER … OWNER`; `CREATE … INDEX` linearisiert (`CREATE [UNIQUE] INDEX IF NOT EXISTS <name> ON <table> (…) [WHERE …];`).
+- **Reihenfolge nach `ALTER … OWNER`:** `-- Unique constraints` → `-- Foreign keys` → Indizes → `ENABLE`/`FORCE ROW LEVEL SECURITY` → `COMMENT`. `CREATE … INDEX` linearisiert (`CREATE [UNIQUE] INDEX IF NOT EXISTS <name> ON <table> (…) [WHERE …];`).
 
 ```sql
 CREATE TABLE IF NOT EXISTS :schema_name.example
@@ -282,15 +294,19 @@ CREATE TABLE IF NOT EXISTS :schema_name.example
    ,parent_id       bigint            NULL
    ,is_active       boolean       NOT NULL DEFAULT true
 
-   ,CONSTRAINT pk_example            PRIMARY KEY (id)
+   ,CONSTRAINT pk_example  PRIMARY KEY (id)
 
-   ,CONSTRAINT uq_example_name       UNIQUE      (name)
-
-   ,CONSTRAINT chk_example_name      CHECK       (length(trim(name)) > 0)
-
-   ,CONSTRAINT fk_example_parent_id  FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE
+   ,CONSTRAINT chk_example_name  CHECK (length(trim(name)) > 0)
 );
 ALTER TABLE :schema_name.example OWNER TO :schema_owner;
+
+-- Unique constraints
+ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS uq_example_name;
+ALTER TABLE :schema_name.example ADD  CONSTRAINT uq_example_name UNIQUE (name);
+
+-- Foreign keys
+ALTER TABLE :schema_name.example DROP CONSTRAINT IF EXISTS fk_example_parent_id;
+ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KEY (parent_id) REFERENCES :schema_name.example(id) ON DELETE CASCADE;
 ```
 
 ### SELECT / DML — vertikales Layout

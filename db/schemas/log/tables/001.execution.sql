@@ -19,11 +19,16 @@ CREATE TABLE IF NOT EXISTS :schema_log.execution
    ,modified_on     timestamptz        NULL
    ,modified_by     varchar(100)       NULL
 
-   ,CONSTRAINT pk_execution             PRIMARY KEY (id)
-
-   ,CONSTRAINT fk_execution_process_id  FOREIGN KEY (process_id) REFERENCES :schema_log.process(id)
+   ,CONSTRAINT pk_execution  PRIMARY KEY (id)
 );
 ALTER TABLE :schema_log.execution OWNER TO :schema_owner;
+
+-- Foreign keys
+ALTER TABLE :schema_log.execution DROP CONSTRAINT IF EXISTS fk_execution_process_id;
+ALTER TABLE :schema_log.execution ADD  CONSTRAINT fk_execution_process_id FOREIGN KEY (process_id) REFERENCES :schema_config.process(id);
+
+CREATE INDEX IF NOT EXISTS ix_execution_process_id ON :schema_log.execution (process_id);
+
 COMMENT ON TABLE :schema_log.execution IS 'Protokollierung je Prozessausfuehrung (Prozessebene).';
 
 \echo "## CREATE TABLE :schema_log.execution - DONE"

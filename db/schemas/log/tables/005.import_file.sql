@@ -11,11 +11,14 @@ CREATE TABLE IF NOT EXISTS :schema_log.import_file
    ,file_size           bigint              NULL
    ,import_date         timestamptz         NULL
 
-   ,CONSTRAINT pk_import_file               PRIMARY KEY (id)
-
-   ,CONSTRAINT fk_import_file_execution_id  FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id)
+   ,CONSTRAINT pk_import_file  PRIMARY KEY (id)
 );
 ALTER TABLE :schema_log.import_file OWNER TO :schema_owner;
+
+-- Foreign keys
+ALTER TABLE :schema_log.import_file DROP CONSTRAINT IF EXISTS fk_import_file_execution_id;
+ALTER TABLE :schema_log.import_file ADD  CONSTRAINT fk_import_file_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
+
 COMMENT ON TABLE :schema_log.import_file IS 'Informationen zu importierten Dateien.';
 
 \echo "## CREATE TABLE :schema_log.import_file - DONE"

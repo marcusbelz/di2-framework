@@ -30,11 +30,14 @@ CREATE TABLE IF NOT EXISTS :schema_log.error
    ,created_on          timestamptz    NOT NULL DEFAULT now()
    ,created_by          varchar(100)   NOT NULL DEFAULT current_user
 
-   ,CONSTRAINT pk_error               PRIMARY KEY (id)
-
-   ,CONSTRAINT fk_error_execution_id  FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id)
+   ,CONSTRAINT pk_error  PRIMARY KEY (id)
 );
 ALTER TABLE :schema_log.error OWNER TO :schema_owner;
+
+-- Foreign keys
+ALTER TABLE :schema_log.error DROP CONSTRAINT IF EXISTS fk_error_execution_id;
+ALTER TABLE :schema_log.error ADD  CONSTRAINT fk_error_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
+
 COMMENT ON TABLE :schema_log.error IS 'Protokollierung von Datenfehlern (Severity ueber error_type: E/W/I).';
 
 \echo "## CREATE TABLE :schema_log.error - DONE"

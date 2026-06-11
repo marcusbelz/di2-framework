@@ -20,12 +20,16 @@ CREATE TABLE IF NOT EXISTS :schema_log.trace
    ,modified_on     timestamptz        NULL
    ,modified_by     varchar(100)       NULL
 
-   ,CONSTRAINT pk_trace               PRIMARY KEY (id)
-
-   ,CONSTRAINT fk_trace_component_id  FOREIGN KEY (component_id) REFERENCES :schema_log.component(id)
-   ,CONSTRAINT fk_trace_execution_id  FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id)
+   ,CONSTRAINT pk_trace  PRIMARY KEY (id)
 );
 ALTER TABLE :schema_log.trace OWNER TO :schema_owner;
+
+-- Foreign keys
+ALTER TABLE :schema_log.trace DROP CONSTRAINT IF EXISTS fk_trace_component_id;
+ALTER TABLE :schema_log.trace ADD  CONSTRAINT fk_trace_component_id FOREIGN KEY (component_id) REFERENCES :schema_log.component(id);
+ALTER TABLE :schema_log.trace DROP CONSTRAINT IF EXISTS fk_trace_execution_id;
+ALTER TABLE :schema_log.trace ADD  CONSTRAINT fk_trace_execution_id FOREIGN KEY (execution_id) REFERENCES :schema_log.execution(id);
+
 COMMENT ON TABLE :schema_log.trace IS 'Detaillierte Protokollierung je Einzelaktion im Prozess (unterste Ebene).';
 
 \echo "## CREATE TABLE :schema_log.trace - DONE"

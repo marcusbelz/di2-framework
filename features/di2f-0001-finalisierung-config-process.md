@@ -236,3 +236,38 @@ die Stammdaten-/Infrastruktur sich selbst protokollieren (zirkulär). Fehler wer
   `log.execution` (Cross-Schema-Read im Löschpfad) und DML auf `config.process` — im bestehenden
   Grant-Modell (fw-Owner Default Privileges) abgedeckt; im `/backend` verifizieren.
 - **Keine** Extensions, **kein** `etl`/Dynamic SQL, **keine** Views.
+
+---
+
+## Backend (implementiert)
+
+> Stand `/backend`. Smoke-Test gegen PostgreSQL 17 (Docker): `deploy.sh all local` (idempotent,
+> 2× fehlerfrei) + `db/tests/config/005.process.sql` → **AK 6–15 grün**, Default-Seed-Anzahl
+> bleibt 1.
+
+### Implementierte Schnittstellen
+- `config.sp_ins_process(IN p_name varchar, INOUT p_id bigint)` — legt Prozess an, liefert neue `id`
+  über `INOUT p_id`. Fehler: `invalid_parameter_value` (Name NULL/leer), `unique_violation`
+  (Name existiert).
+- `config.sp_upd_process(IN p_id bigint, IN p_name varchar)` — benennt um; identischer Name = No-op.
+  Fehler: `invalid_parameter_value` (`p_id` NULL / Name leer), `no_data_found` (id unbekannt),
+  `unique_violation` (Name von anderem Prozess belegt).
+- `config.sp_del_process(IN p_id bigint)` — löscht; Pre-Check zählt `log.execution`. Fehler:
+  `invalid_parameter_value` (`p_id` NULL), `no_data_found` (id unbekannt), `foreign_key_violation`
+  (referenziert — Meldung **mit Anzahl**; FK als Race-Backstop).
+- `config.tf_set_modified()` + Trigger `config.tr_u_process` — setzen `modified_on`/`modified_by`.
+- Seed `config.process`: ein Datensatz `name = 'default'` (`ON CONFLICT (name) DO NOTHING`).
+- Index `ix_execution_process_id` auf `log.execution (process_id)` (FK-Spalte + Delete-Count).
+
+### Konventions-Entscheidungen (Framework-Setzung)
+- **Body-Schema-Referenzen hardcoded qualifiziert:** psql interpoliert `:schema_*` **nicht** in
+  Dollar-Quoting (empirisch bestätigt: `ERROR: syntax error at or near ":"`). Entscheidung (User):
+  der Prozedur-Body referenziert **explizit qualifiziert** (`config.process` / `log.execution`); die
+  DDL-Teile (CREATE/DROP/OWNER) bleiben `:schema_*`-Variablen (Single Source of Truth für Ablage).
+  Vertretbar, weil die vier Schemanamen über **alle** Umgebungen fix sind — nur ein globaler
+  Schema-Rename wäre ein grep-replace. **Erste Prozeduren im Framework → setzt die Konvention.**
+- **Schlanke Procs:** `l_component` als Literal gesetzt (kein `lc_messages`/`PG_CONTEXT`), daher kein
+  `GRANT SET ON PARAMETER lc_messages` nötig (BUG-0337).
+- **Constraint-Layout (sql.md erweitert):** PK inline (explizit benannt, am Ende des `CREATE TABLE`);
+  `UNIQUE`/`FK` als separate idempotente `ALTER TABLE … DROP CONSTRAINT IF EXISTS … ; ADD CONSTRAINT
+  …` nach `ALTER … OWNER`, gruppiert. Repo-weit auf alle config/log-Tabellen angewendet.

@@ -23,11 +23,14 @@ CREATE TABLE IF NOT EXISTS :schema_config.table_metadata
    ,decode_xml              boolean         NOT NULL DEFAULT false
    ,date_style              varchar(50)         NULL
 
-   ,CONSTRAINT pk_table_metadata     PRIMARY KEY (schema_name, table_name, column_name)
-
-   ,CONSTRAINT uq_table_metadata_ak1 UNIQUE      (schema_id, table_id, column_id)
+   ,CONSTRAINT pk_table_metadata  PRIMARY KEY (schema_name, table_name, column_name)
 );
 ALTER TABLE :schema_config.table_metadata OWNER TO :schema_owner;
+
+-- Unique constraints
+ALTER TABLE :schema_config.table_metadata DROP CONSTRAINT IF EXISTS uq_table_metadata_ak1;
+ALTER TABLE :schema_config.table_metadata ADD  CONSTRAINT uq_table_metadata_ak1 UNIQUE (schema_id, table_id, column_id);
+
 COMMENT ON TABLE :schema_config.table_metadata IS 'Metadaten: eine Zeile je Spalte einer Quellsystem-Tabelle.';
 
 \echo "## CREATE TABLE :schema_config.table_metadata - DONE"
