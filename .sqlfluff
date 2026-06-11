@@ -14,7 +14,11 @@
 #                                der \echo-Kopf-/Fusszeilen bei der Sanitierung verursacht).
 #   references.keywords       -> bewusst gewaehlte Spaltennamen (version, state, ...).
 #   capitalisation.identifiers-> Casing-Konsistenz inkl. Sanitierungs-Platzhalter.
+#   postgres.excessive_locks  -> PG01 verlangt CREATE INDEX CONCURRENTLY; die Haus-
+#                                konvention (sql.md) nutzt das bewusst nicht, und im
+#                                transaktionalen psql-Deploy ist CONCURRENTLY unmoeglich
+#                                (BUG-0002).
 [sqlfluff]
 dialect = postgres
 templater = raw
-exclude_rules = layout, references.keywords, capitalisation.identifiers
+exclude_rules = layout, references.keywords, capitalisation.identifiers, postgres.excessive_locks
