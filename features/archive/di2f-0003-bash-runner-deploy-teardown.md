@@ -1,7 +1,7 @@
 # di2f-0003: Bash-Runner für DB-Setup, Deploy & Teardown der 4 Schemas
 
 - **Priorität:** P0
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** — (DB-Tooling; betrifft alle vier Schemas `config`/`etl`/`helper`/`log` über die Lade-Reihenfolge, legt aber kein neues DB-Objekt an)
 
 ## Problem / Motivation
@@ -155,3 +155,5 @@ Alle: `<env>` ∈ {local,dev,int,test,prod} (Default `local`); laden `db/config/
 - `drop.sh local` → Datenbank + Rollen entfernt.
 
 > **Setup-Hinweis:** Das `docker/`-Compose bindet das Repo unter `/di2-framework` ein (so in `docker.di2f.yml` festgelegt); die Runner sind pfadunabhängig (relative `SCRIPT_DIR`-Pfade). Lokales Deployment ist in `docker/README.md` dokumentiert.
+
+**Live auf Hetzner ✓ (2026-06-11):** Über die di2f-0004-Workflows wurden `create`/`deploy`/`clean`/`drop` in allen vier Umgebungen (`dev`/`int`/`test`/`prod`) erfolgreich ausgeführt — die Runner sind damit auch produktiv (nicht nur lokal) bestätigt.

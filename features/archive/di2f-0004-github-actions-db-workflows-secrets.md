@@ -1,7 +1,7 @@
 # di2f-0004: GitHub-Actions-DB-Workflows & Secrets (4 Umgebungen)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** — (CI-CD / Deployment-Automation; betrifft alle vier Schemas über die Runner)
 
 ## Problem / Motivation
@@ -162,4 +162,4 @@ Reproduzierbare Checkliste je Umgebung (`dev`/`int`/`test`/`prod`): die sieben S
 
 **Security-Details:** `confirm` wird **nicht** in den Skript-String interpoliert, sondern über `env: CONFIRM` verglichen (kein Shell-Injection-Risiko); `schema`/`environment` sind `choice`-Inputs (eingeschränkt). Branch→Umgebung nativ über die di2f-0002-Environments (kein Skript-Guard). Leerer `DEPLOY_PATH` → klarer Abbruch.
 
-**Test-Stand:** YAML-Struktur + LF-Zeilenenden (`.gitattributes` `*.yml eol=lf`) geprüft (kein lokaler YAML-Parser/`act` verfügbar). **Live-Lauf steht aus** — erfordert gesetzte Secrets/Variablen je Environment, einen Hetzner-Host mit Repo-Checkout und einen Dispatch über GitHub Actions (GitHub validiert die Workflow-Syntax beim Push). Voll testbar zusammen mit der Secret-Anlage (Abschnitt G).
+**Test-Stand:** YAML-Struktur + LF-Zeilenenden (`.gitattributes` `*.yml eol=lf`) geprüft. **Live verifiziert am 2026-06-11:** alle vier Workflows (`db-create`/`-deploy`/`-clean`/`-drop`) wurden über GitHub Actions in **allen vier Umgebungen** (`dev`/`int`/`test`/`prod`) erfolgreich ausgeführt. Betrieb auf einem gemeinsamen Hetzner-Host (SSH-User `fupi`, Port `2121`), Environment-Secrets/-Variablen je Umgebung gesetzt. Setup-Stolperstein zum Merken: eine versehentlich als *Secret* statt als *Variable* angelegte `DEPLOY_PATH` → der Guard schlägt fehl, weil `vars.` nur Variables liest.

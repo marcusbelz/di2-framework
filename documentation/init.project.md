@@ -10,7 +10,7 @@
 |------|------|
 | Repository | `c:\sandbox\github\di2-framework` |
 | Ausgangslage | Leeres Git-Repo auf Branch `main`, **0 Commits, 0 Dateien** |
-| Zeitraum | 2026-06-08 – 2026-06-09 |
+| Zeitraum | 2026-06-08 – 2026-06-11 |
 | Zielplattform | PostgreSQL 17 (PL/pgSQL; PL/Python nur wo nötig) |
 | Arbeitssprache | Deutsch |
 | Beteiligte | marcus (marcus.belz@gmx.de) · Claude Code (Assistent) |
@@ -155,6 +155,36 @@ jeweils adaptiert):
   referenzierte Prozesse mit Vorab-Check ab; Audit über `current_user`/Trigger; schlanke
   Protokollierung (nur `RAISE`). 12 Akzeptanzkriterien. PRD-Roadmap verlinkt.
 
+### 16 · Git-Branch- & Deploy-Strategie (di2f-0002) — 2026-06-09 · **Deployed**
+- Branch→Umgebung-Modell festgelegt und über GitHub-Environments durchgesetzt: vier Environments
+  `dev`/`int`/`test`/`prod` mit Deployment-Branch-Policy (`dev`/`int` ← `dev`, `test`/`prod` ← `main`)
+  plus `main`-Ruleset. Spec via `/requirements`→`/architecture`→`/backend`; deployed und nach
+  `features/archive/` verschoben.
+
+### 17 · Bash-Runner (di2f-0003) — 2026-06-09 · **Deployed**
+- `db/scripts/{create,deploy,clean,drop}.sh` + `clean.schema.sql` + `README.md`. Laden die Objekte
+  sektionsweise aus der Verzeichnisstruktur (Tables→…→Data); `all`-Reihenfolge zentral im Runner;
+  Bootstrap verbindet als `postgres`, Objekt-Deploy als Schema-Owner `di2f_<env>_fw`. Lokaler
+  Smoke-Test (Docker, PostgreSQL 17.5, env `local`) bestanden.
+
+### 18 · BUG-0001 — Branch→Umgebung int/test vertauscht — 2026-06-09 (behoben)
+- In der ursprünglichen Zuordnung wirkten `int`/`test` vertauscht; korrigiert auf `dev`/`int` ← `dev`,
+  `test`/`prod` ← `main` (Doku-/Workflow-Texte + GitHub-Environment-Branches). Bug geschlossen und nach
+  `docs/bug/archive/2026-Q2/` archiviert.
+
+### 19 · GitHub-Actions-Workflows & Secrets (di2f-0004) — 2026-06-09…11 · **Deployed**
+- Vier `workflow_dispatch`-Workflows unter `.github/workflows/` (`db-create`/`-deploy`/`-clean`/`-drop`),
+  die die di2f-0003-Runner per SSH (`appleboy/ssh-action`) auf dem Hetzner-Host aufrufen; Branch→Umgebung
+  nativ über die Environment-Policy, Bestätigungs-Guard für `clean`/`drop`.
+- Geführte Secret-Anlage je Environment: CI-SSH-Keypair (Host-Zugang), `DB_*`-Passwörter,
+  Variablen `DEPLOY_PATH`/`SSH_PORT`.
+- Betriebs-Topologie: **ein gemeinsamer Hetzner-Host** (SSH-User `fupi`, Port `2121`), eine
+  PostgreSQL-Instanz für alle vier Umgebungen; `DB_HOST=localhost` (Platzhalter in `test.env`/`prod.env`
+  korrigiert). Repo privat → Host nutzt vorhandenen Account-SSH-Key für `git fetch`.
+- **Live verifiziert am 2026-06-11:** alle vier Workflows × alle vier Umgebungen (`dev`/`int`/`test`/`prod`)
+  erfolgreich; damit auch di2f-0003 produktiv bestätigt. Beide Features bewusst **ohne `/security`-Gate**
+  auf `Deployed` gesetzt (auf Anweisung des Auftraggebers).
+
 ## Erstellte Artefakte (Stand 2026-06-09)
 
 ```
@@ -187,10 +217,14 @@ db/tests/                                      (Testskripte noch zu erstellen)
 example/sample05.db/...                        (SQL-Server-Vorlage, nicht Teil des Deployments)
 ```
 
-## Offene Punkte (Stand 2026-06-09)
+## Offene Punkte (Stand 2026-06-11)
 
-- Bash-Runner `db/scripts/{create,drop,deploy}.sh` (Env laden, Passwörter via `-v`).
-- Portierung der Framework-Objekte (`db/schemas/...`) aus der SQL-Server-Vorlage.
+- **`/security`-Audit (projektweit)** noch ausstehend — vor dem `Deployed`-Stempel für
+  di2f-0002/0003/0004 bewusst übersprungen.
+- **di2f-0001:** Finalisierung `log.process` (Insert/Update/Delete-Prozeduren, Seed, Test) — geplant.
+- **di2f-0005:** DB-CI (Dry-Run-Deploy + Lint, Required-Gate) — geplant.
+- Portierung weiterer Framework-Objekte (`db/schemas/...`: `etl`/`helper` + restliche `log`-Prozeduren)
+  aus der SQL-Server-Vorlage.
 - VS-Projekt-/Developer-Workflow-Dokumentation.
 - Klärung des `agents/`-Ordners aus dem Parallelprojekt.
 
