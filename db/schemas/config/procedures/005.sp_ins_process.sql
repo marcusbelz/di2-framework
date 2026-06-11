@@ -1,6 +1,6 @@
 \echo "## CREATE PROCEDURE :schema_config.sp_ins_process"
 
-DROP PROCEDURE IF EXISTS :schema_config.sp_ins_process(varchar, bigint);
+DROP PROCEDURE IF EXISTS :schema_config.sp_ins_process(bigint, varchar);
 
 -- --------------------------------------------------------------------------------
 -- Parameter
@@ -81,6 +81,6 @@ BEGIN
 END;
 $procedure$;
 
-ALTER PROCEDURE :schema_config.sp_ins_process(varchar, bigint) OWNER TO :schema_owner;
+ALTER PROCEDURE :schema_config.sp_ins_process(bigint, varchar) OWNER TO :schema_owner;
 
 \echo "## CREATE PROCEDURE :schema_config.sp_ins_process - DONE"

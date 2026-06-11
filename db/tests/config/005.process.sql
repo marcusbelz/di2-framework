@@ -72,7 +72,7 @@ BEGIN
    ASSERT l_count = 1, 'AK15: Seed nicht idempotent, default-Anzahl = ' || l_count;
 
    -- AK6: Insert Happy Path -> neue id + created_on/created_by per Default
-   CALL sp_ins_process('di2f-0001 alpha', l_id);
+   CALL sp_ins_process(l_id, 'di2f-0001 alpha');
    ASSERT l_id IS NOT NULL, 'AK6: sp_ins_process liefert keine id';
    SELECT created_by INTO l_created_by FROM process WHERE id = l_id;
    ASSERT l_created_by IS NOT NULL, 'AK6: created_by nicht gesetzt';
@@ -80,7 +80,7 @@ BEGIN
    -- AK7: doppelter Name beim Insert -> Ablehnung
    l_threw := false;
    BEGIN
-      CALL sp_ins_process('di2f-0001 alpha', l_id2);
+      CALL sp_ins_process(l_id2, 'di2f-0001 alpha');
    EXCEPTION WHEN unique_violation THEN
       l_threw := true;
    END;
@@ -89,7 +89,7 @@ BEGIN
    -- AK8: NULL-Name -> Ablehnung
    l_threw := false;
    BEGIN
-      CALL sp_ins_process(NULL, l_id2);
+      CALL sp_ins_process(l_id2, NULL);
    EXCEPTION WHEN invalid_parameter_value THEN
       l_threw := true;
    END;
@@ -98,7 +98,7 @@ BEGIN
    -- AK8: leerer / Whitespace-Name -> Ablehnung
    l_threw := false;
    BEGIN
-      CALL sp_ins_process('   ', l_id2);
+      CALL sp_ins_process(l_id2, '   ');
    EXCEPTION WHEN invalid_parameter_value THEN
       l_threw := true;
    END;
@@ -107,7 +107,7 @@ BEGIN
    -- Edge: Name > 100 Zeichen (varchar(100)) -> definierter Fehler, kein stiller Cut
    l_threw := false;
    BEGIN
-      CALL sp_ins_process(repeat('x', 101), l_id);
+      CALL sp_ins_process(l_id, repeat('x', 101));
    EXCEPTION WHEN string_data_right_truncation THEN
       l_threw := true;
    END;
@@ -132,7 +132,7 @@ BEGIN
    ASSERT l_threw, 'AK10: Update auf unbekannte id haette abgelehnt werden muessen';
 
    -- AK11: Update auf Namen eines anderen Prozesses -> Ablehnung
-   CALL sp_ins_process('di2f-0001 beta', l_id2);
+   CALL sp_ins_process(l_id2, 'di2f-0001 beta');
    l_threw := false;
    BEGIN
       CALL sp_upd_process(l_id2, 'di2f-0001 alpha renamed');
@@ -142,12 +142,12 @@ BEGIN
    ASSERT l_threw, 'AK11: Update auf fremden Namen haette abgelehnt werden muessen';
 
    -- AK12: Delete eines nicht referenzierten Prozesses
-   CALL sp_ins_process('di2f-0001 deletable', l_id2);
+   CALL sp_ins_process(l_id2, 'di2f-0001 deletable');
    CALL sp_del_process(l_id2);
    ASSERT NOT EXISTS (SELECT 1 FROM process WHERE id = l_id2), 'AK12: Prozess nicht geloescht';
 
    -- AK13: Delete eines referenzierten Prozesses -> Ablehnung, Datensatz bleibt
-   CALL sp_ins_process('di2f-0001 referenced', l_id2);
+   CALL sp_ins_process(l_id2, 'di2f-0001 referenced');
    INSERT INTO execution (process_id, start_on) VALUES (l_id2, now());
    l_threw := false;
    BEGIN
