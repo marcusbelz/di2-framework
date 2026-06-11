@@ -147,4 +147,4 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 - `sqlfluff` (3.x) gegen die sanitierten Skripte: **grün** — 26 Dateien gelintet, 1 dokumentiert übersprungen, 0 Verstöße.
 - `shellcheck --severity=warning` über Runner + Helfer: **grün** (Exit 0).
 - **Dry-Run gegen `postgres:17`:** `create.sh local` + `deploy.sh all local` + erneut (Idempotenz) **erfolgreich**; `has_table_privilege('di2f_rw','log.process','SELECT')` = `t` (Default-Privileges-Grant greift).
-- **Live-Lauf in GitHub Actions** steht aus (erst nach Push/PR sichtbar; YAML-Syntax wurde validiert).
+- **Live-Lauf in GitHub Actions** ✅ (2026-06-11): erster Push→`dev`-Lauf grün — beide Jobs (`dry-run-deploy`, `lint`) erfolgreich.
