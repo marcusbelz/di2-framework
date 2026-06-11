@@ -271,3 +271,73 @@ die Stammdaten-/Infrastruktur sich selbst protokollieren (zirkulär). Fehler wer
 - **Constraint-Layout (sql.md erweitert):** PK inline (explizit benannt, am Ende des `CREATE TABLE`);
   `UNIQUE`/`FK` als separate idempotente `ALTER TABLE … DROP CONSTRAINT IF EXISTS … ; ADD CONSTRAINT
   …` nach `ALTER … OWNER`, gruppiert. Repo-weit auf alle config/log-Tabellen angewendet.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-11 · **Umgebung:** PostgreSQL 17 (Docker, wegwerfbar) · **Runner:**
+`deploy.sh all local` (2× idempotent) + `db/tests/config/005.process.sql` (psql + `ASSERT`,
+transaktional mit `ROLLBACK`). Test zusätzlich **als Laufzeitrolle** `di2f_sa` (erbt `di2f_rw`,
+nicht Owner) ausgeführt → bestanden.
+
+### Akzeptanzkriterien
+
+| # | Kriterium | Ergebnis | Beleg |
+|---|-----------|----------|-------|
+| 1 | `process` in `config`, nicht mehr in `log` | ✅ | Katalog: `config.process` existiert, `log.process` nicht |
+| 2 | `uq_process_name UNIQUE (name)` | ✅ | Katalog + AK 7/11 (unique_violation) |
+| 3 | FK `fk_execution_process_id` → `config.process(id)` | ✅ | Katalog (`confrelid` = config.process) + AK 13 |
+| 4 | `log`-Tabellen ab 001 neu nummeriert, `deploy.sh all` grün | ✅ | Dateisystem (`ls`) + Deploy rc=0 |
+| 5 | `config.tr_u_process` pflegt `modified_*`, ohne `log`-Bezug | ✅ | Katalog + AK 9 (modified_on gesetzt) |
+| 6 | `sp_ins_process`: anlegen, `id` zurück, created-Defaults | ✅ | Test |
+| 7 | `sp_ins_process`: doppelter Name abgewiesen | ✅ | Test (unique_violation) |
+| 8 | `sp_ins_process`: NULL/leer/Whitespace abgewiesen | ✅ | Test (invalid_parameter_value) |
+| 9 | `sp_upd_process`: umbenennen, `modified_*` via Trigger, identisch = No-op | ✅ | Test |
+| 10 | `sp_upd_process`: nicht existierende `id` abgewiesen | ✅ | Test (no_data_found) |
+| 11 | `sp_upd_process`: fremder Name abgewiesen | ✅ | Test (unique_violation) |
+| 12 | `sp_del_process`: nicht referenzierten Prozess löschen | ✅ | Test |
+| 13 | `sp_del_process`: referenzierten abweisen (mit Anzahl), Datensatz bleibt | ✅ | Test (foreign_key_violation) |
+| 14 | `sp_del_process`: nicht existierende `id` abgewiesen | ✅ | Test (no_data_found) |
+| 15 | Seed: genau ein `default`, idempotent | ✅ | Test + Deploy 2× → Anzahl bleibt 1 |
+| 16 | psql-Testskript deckt AK ab, frisch deployt grün | ✅ | Skript erweitert (AK 1–3,5 strukturell + 6–15 + Edge) |
+
+### Edge Cases
+- Doppelter Name (ins/upd), NULL/leer/Whitespace, identischer Name (No-op), Delete referenziert,
+  Update/Delete unbekannte `id`: alle ✅ (siehe AK 7–14).
+- **Name > 100 Zeichen:** ✅ — wirft `string_data_right_truncation` (22001), **kein** stiller Cut
+  (definierter, sicherer Fehler; keine AK fordert eine freundliche Meldung).
+- **Nebenläufige Inserts gleichen Namens:** durch `uq_process_name` + `EXCEPTION WHEN
+  unique_violation` abgesichert (funktional über AK 7 belegt; echte Parallelität nicht im
+  Single-Session-Skript reproduzierbar).
+- **Idempotenz:** Deploy 2× rc=0, keine `ERROR:`/`FATAL`, Seed bleibt bei 1.
+
+### Protokollierungs-Integration
+Spec-konform **schlank**: die Prozeduren schreiben **keine** Execution/Component/Trace/Error-Einträge
+(kein Dynamic SQL, keine Inserts nach `log.*`; `sp_del_process` **liest** nur `log.execution`).
+Fehler ausschließlich über `RAISE` mit `format()`-Meldung.
+
+### Feature-spezifische Security-Funde
+- **`SECURITY INVOKER`** (kein `SECURITY DEFINER`) bei allen drei Prozeduren → keine
+  Privilege-Escalation. ✅ (Katalog: `prosecdef = f`)
+- **Kein Dynamic SQL** (kein `EXECUTE`) → keine Injection-Fläche; `format()` erzeugt nur
+  Fehler-Meldungstext (indizierte Platzhalter), wird nicht als SQL ausgeführt. ✅
+- **Least-Privilege verifiziert:** Test als `di2f_sa`/`di2f_rw` (Nicht-Owner) grün — inkl.
+  Cross-Schema-`SELECT` auf `log.execution` im Löschpfad mit Standard-Grants. ✅
+- **Niedrig/Info — FK `ON DELETE`:** `confdeltype = 'a'` (NO ACTION). Die Spec sprach von
+  „RESTRICT"; funktional identisch (Löschen referenzierter Prozesse wird abgewiesen). Optional
+  explizites `ON DELETE RESTRICT` für Klarheit.
+
+### Kandidaten für nächsten `/security`-Run
+- **Cross-Schema-Grant-Modell:** `di2f_rw` braucht `USAGE` auf `config`+`log`, `SELECT` auf
+  `log.execution`, `EXECUTE` auf `config`-Routinen. In QA mit manuellen Grants belegt; das **reale
+  `db/database/`-Bootstrap** (laut CLAUDE.md noch nicht auf die vier Schemas umgebaut) muss diese
+  Grants vergeben — **bei `/deploy dev` verifizieren**.
+- **Audit über `current_user`** (Verbindungsrolle) statt App-Akteur — bewusste Spec-Entscheidung für
+  framework-interne Stammdaten; projektweite Bewertung der Audit-Konvention für `config`.
+- **BUG-0002** (sqlfluff PG01-Fehlalarm auf `CREATE INDEX`) — Lint-Konfig, kein SQL-Fehler.
+
+### Production-Ready-Entscheidung
+**READY.** Keine Critical/High/Medium-Bugs. AK 1–16 + Edge Cases bestanden, idempotent,
+least-privilege verifiziert. Offene Punkte sind **Verifikations-/Konfig-Aufgaben** (Cross-Schema-
+Grants im realen Bootstrap → spätestens `/deploy dev`), keine Code-Defekte.

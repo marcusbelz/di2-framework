@@ -9,9 +9,8 @@
 --        -f db/config/<env>.env.sql -f db/tests/config/005.process.sql
 --
 -- Laeuft transaktional und macht am Ende ROLLBACK -> hinterlaesst keine Testdaten.
--- AK 1–5 (Schema-Umzug, Renumbering, FK, Trigger-Existenz) sind Deploy-strukturell
--- und werden durch ein erfolgreiches Deploy belegt; hier laufen die Verhaltens-AK 6–15
--- (die den UNIQUE-Constraint und den FK implizit mit-pruefen).
+-- Deckt strukturelle AK 1-3 & 5 (Katalog-Checks), Verhaltens-AK 6-15 sowie Edge Cases ab.
+-- AK 4 (log-Renumbering) ist eine Dateisystem-Tatsache und wird ueber Deploy/ls belegt.
 -- --------------------------------------------------------------------------------
 \set ON_ERROR_STOP on
 
@@ -31,6 +30,38 @@ DECLARE
    l_count       bigint;
    l_threw       boolean;
 BEGIN
+   -- AK1: process liegt in config, nicht mehr in log
+   ASSERT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'config' AND tablename = 'process'),
+      'AK1: config.process fehlt';
+   ASSERT NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'log' AND tablename = 'process'),
+      'AK1: log.process existiert noch';
+
+   -- AK2: uq_process_name auf config.process
+   ASSERT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'uq_process_name' AND conrelid = 'config.process'::regclass),
+      'AK2: uq_process_name fehlt';
+
+   -- AK3: FK fk_execution_process_id zeigt auf config.process
+   ASSERT EXISTS (
+      SELECT 1
+      FROM   pg_constraint T01
+             INNER JOIN pg_class T02
+             ON
+               T02.oid = T01.confrelid
+             INNER JOIN pg_namespace T03
+             ON
+               T03.oid = T02.relnamespace
+      WHERE      T01.conname  = 'fk_execution_process_id'
+         AND     T01.conrelid = 'log.execution'::regclass
+         AND     T02.relname  = 'process'
+         AND     T03.nspname  = 'config'
+   ), 'AK3: FK fk_execution_process_id zeigt nicht auf config.process';
+
+   -- AK5: Trigger tr_u_process auf config.process
+   ASSERT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'tr_u_process' AND tgrelid = 'config.process'::regclass),
+      'AK5: tr_u_process fehlt';
+
    -- AK15: Seed liefert genau einen Default-Datensatz
    SELECT count(*) INTO l_count FROM process WHERE name = 'default';
    ASSERT l_count = 1, 'AK15: genau ein Seed-Datensatz default erwartet, war ' || l_count;
@@ -72,6 +103,15 @@ BEGIN
       l_threw := true;
    END;
    ASSERT l_threw, 'AK8: Whitespace-Name haette abgelehnt werden muessen';
+
+   -- Edge: Name > 100 Zeichen (varchar(100)) -> definierter Fehler, kein stiller Cut
+   l_threw := false;
+   BEGIN
+      CALL sp_ins_process(repeat('x', 101), l_id);
+   EXCEPTION WHEN string_data_right_truncation THEN
+      l_threw := true;
+   END;
+   ASSERT l_threw, 'Edge >100 Zeichen: erwartet string_data_right_truncation (22001)';
 
    -- AK9: Update aendert Namen; modified_on per Trigger gesetzt
    CALL sp_upd_process(l_id, 'di2f-0001 alpha renamed');
@@ -127,7 +167,7 @@ BEGIN
    END;
    ASSERT l_threw, 'AK14: Delete auf unbekannte id haette abgelehnt werden muessen';
 
-   RAISE NOTICE '### ALL ASSERTIONS PASSED (AK 6-15)';
+   RAISE NOTICE '### ALL ASSERTIONS PASSED (AK 1-3,5 strukturell + 6-15 + Edge >100)';
 END;
 $test$;
 
