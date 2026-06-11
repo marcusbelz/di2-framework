@@ -148,3 +148,41 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 - `shellcheck --severity=warning` über Runner + Helfer: **grün** (Exit 0).
 - **Dry-Run gegen `postgres:17`:** `create.sh local` + `deploy.sh all local` + erneut (Idempotenz) **erfolgreich**; `has_table_privilege('di2f_rw','log.process','SELECT')` = `t` (Default-Privileges-Grant greift).
 - **Live-Lauf in GitHub Actions** ✅ (2026-06-11): erster Push→`dev`-Lauf grün — beide Jobs (`dry-run-deploy`, `lint`) erfolgreich.
+
+---
+
+## QA Test Results (QA Engineer)
+
+**Testumgebung:** lokal via Docker (`postgres:17`, `sqlfluff` 3.x, `koalaman/shellcheck`) gegen den **committeten** Stand (`git archive HEAD`, ohne di2f-0001-WIP); zusätzlich der **Live-Lauf** in GitHub Actions (Push→`dev`, 2026-06-11) grün. Negativ-Tests in ephemeren Containern mit Repo-Kopien (echtes Repo unberührt).
+
+| AC | Ergebnis | Beleg |
+|----|----------|-------|
+| 1 — ci.yml, PR→main + push→dev | ✅ | Config korrekt; push→dev live grün |
+| 2 — PG17-Service + `create.sh local` | ✅ | `create` EXIT=0 (live + lokal) |
+| 3 — `deploy all` + Idempotenz (2.×) | ✅ | deploy#1/#2 EXIT=0 (committeter Stand) |
+| 4 — shellcheck; Shell-Fehler → rot | ✅ | clean EXIT=0, kaputt EXIT=1 |
+| 5 — sqlfluff; Fehler → rot; **keine** Fehlalarme | ⚠️ | kaputt EXIT=1, Baseline (committet) EXIT=0 — **aber Fehlalarm `PG01` auf konventionellem `CREATE INDEX` → BUG** |
+| 6 — kaputtes SQL/Shell → rot | ✅ | sqlfluff=1, shellcheck=1, Dry-Run-Deploy EXIT=3 („syntax error") |
+| 7 — Ruleset verlangt CI-Check; rot blockt Merge | ⏳ offen | Ruleset-Setup (guided) + PR-Test ausstehend |
+| 8 — grün → mergebar | ⏳ offen | wie AC 7 |
+| 9 — keine Secrets | ✅ | `ci.yml` ohne `secrets.*`; `permissions: contents: read`; local-Creds `pw` |
+
+**Edge Cases:** kaputtes SQL → Dry-Run rot ✅ (EXIT 3); nicht-idempotent → 2. Deploy rot ✅ (EXIT 3, „already exists"); sqlfluff zu streng → **Fehlalarm gefunden** (PG01, s. Bug); CRLF durch `.gitattributes` (LF) abgesichert; Fork-PR ohne Secrets ✅ (`pull_request`, nicht `pull_request_target`).
+
+**Gefundene Bugs:**
+- **[Mittel] sqlfluff-Fehlalarm `PG01` (postgres.excessive_locks) auf konventionellem `CREATE INDEX`.** `.sqlfluff` `exclude_rules` enthält `PG01` nicht; die Regel verlangt `CONCURRENTLY` — die Hauskonvention (`sql.md`: `CREATE [UNIQUE] INDEX IF NOT EXISTS …` ohne CONCURRENTLY) nutzt das bewusst nicht (und im transaktionalen Deploy ist es nicht möglich). Folge: jede index-tragende Änderung färbt den `lint`-Job rot → blockiert Merges (verstößt gegen AC 5). **Repro:** eine Datei mit `CREATE INDEX … ON …;` unter `db/schemas/**` → `bash .github/sqlfluff-lint.sh` → `PG01`-FAIL. Aufgedeckt durch die di2f-0001-WIP (Index auf `execution`); der **committete/gepushte Stand ist noch grün**. **Fix:** `postgres.excessive_locks` (PG01) in `exclude_rules` aufnehmen → `/backend`. Kein View-Bug.
+
+**Feature-spezifische Security-Checks (neue Fläche = die CI):**
+- **Secrets:** keine — `ci.yml` referenziert keine `secrets.*`, `permissions: contents: read`, ephemere DB mit `pw`, fork-sicher (`pull_request`). ✅
+- **Lint-Helfer:** `sqlfluff-lint.sh` schreibt nur nach `mktemp`, liest read-only; die sed-Sanitierung dient nur dem Linter (kein ausgeführtes SQL) → keine Injection-Relevanz. ✅
+- Keine neuen Prozeduren/Funktionen/Policies/Rollen → kein Dynamic-SQL-/RLS-/SECURITY-DEFINER-Check nötig.
+
+**Kandidaten für nächsten `/security`-Run:**
+- Der `dry-run-deploy`-Job **führt PR-SQL real aus** (`create.sh`/`deploy.sh` gegen ephemere DB). Aus einem Fork-PR könnte bösartiges SQL (z. B. `COPY … TO PROGRAM`) Code auf dem Runner ausführen — Blast-Radius gering (keine Secrets, Wegwerf-Runner), aber relevant, falls je externe PRs akzeptiert werden.
+- `SC2162` (`read` ohne `-r`) in den di2f-0003-Runnern — Mini-Robustheit.
+
+**Regression:** di2f-0003-Runner durch den Dry-Run weiter grün (committeter Stand deployt + idempotent, RW-Grant `t`); di2f-0002/0004 unberührt (CI nutzt keine Environments/Secrets).
+
+**Production-Ready: JA, mit Auflagen** (keine Critical/High). Vor `/deploy`:
+1. **BUG (Mittel) `PG01`-Fehlalarm fixen** — blockt sonst di2f-0001 und jede künftige Index-Änderung.
+2. **AC 7/8** durch Ruleset-Setup (guided) + einen Live-PR verifizieren.
