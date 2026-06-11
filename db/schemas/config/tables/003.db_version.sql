@@ -22,14 +22,15 @@ ALTER TABLE :schema_config.db_version OWNER TO :schema_owner;
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_config.db_version IS 'Deploy-Historie der Datenbank-Version: eine Zeile je Deploy (Version, Git-Stand, Umgebung).';
-COMMENT ON COLUMN :schema_config.db_version.major IS 'Hauptversion (major) der Release-Version.';
-COMMENT ON COLUMN :schema_config.db_version.minor IS 'Nebenversion (minor) der Release-Version.';
-COMMENT ON COLUMN :schema_config.db_version.build IS 'Build-Nummer der Release-Version.';
+COMMENT ON TABLE  :schema_config.db_version                 IS 'Deploy-Historie der Datenbank-Version: eine Zeile je Deploy (Version, Git-Stand, Umgebung).';
+
+COMMENT ON COLUMN :schema_config.db_version.major           IS 'Hauptversion (major) der Release-Version.';
+COMMENT ON COLUMN :schema_config.db_version.minor           IS 'Nebenversion (minor) der Release-Version.';
+COMMENT ON COLUMN :schema_config.db_version.build           IS 'Build-Nummer der Release-Version.';
 COMMENT ON COLUMN :schema_config.db_version.release_version IS 'Lesbare Release-Version „major.minor.build" (generiert, stets konsistent zu major/minor/build).';
-COMMENT ON COLUMN :schema_config.db_version.git_commit IS 'Commit-SHA des deployten Git-Stands.';
-COMMENT ON COLUMN :schema_config.db_version.git_tag IS 'Git-Release-Tag des Stands (optional; NULL, wenn nicht getaggt).';
-COMMENT ON COLUMN :schema_config.db_version.environment IS 'Zielumgebung des Deploys: dev/int/test/prod.';
-COMMENT ON COLUMN :schema_config.db_version.deployed_on IS 'Zeitpunkt des Deploys.';
+COMMENT ON COLUMN :schema_config.db_version.git_commit      IS 'Commit-SHA des deployten Git-Stands.';
+COMMENT ON COLUMN :schema_config.db_version.git_tag         IS 'Git-Release-Tag des Stands (optional; NULL, wenn nicht getaggt).';
+COMMENT ON COLUMN :schema_config.db_version.environment     IS 'Zielumgebung des Deploys: dev/int/test/prod.';
+COMMENT ON COLUMN :schema_config.db_version.deployed_on     IS 'Zeitpunkt des Deploys.';
 
 \echo "## CREATE TABLE :schema_config.db_version - DONE"

@@ -22,7 +22,8 @@ ALTER TABLE :schema_config.process ADD  CONSTRAINT uq_process_name UNIQUE (name)
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_config.process IS 'Stammdaten: benannte Prozesse (Konfigurationsdaten).';
+COMMENT ON TABLE  :schema_config.process      IS 'Stammdaten: benannte Prozesse (Konfigurationsdaten).';
+
 COMMENT ON COLUMN :schema_config.process.name IS 'Eindeutiger Prozessname (Natural Key, UNIQUE).';
 
 \echo "## CREATE TABLE :schema_config.process - DONE"

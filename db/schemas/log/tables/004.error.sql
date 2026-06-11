@@ -43,30 +43,31 @@ ALTER TABLE :schema_log.error ADD  CONSTRAINT fk_error_execution_id FOREIGN KEY 
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_log.error IS 'Protokollierung von Datenfehlern (Severity ueber error_type: E/W/I).';
-COMMENT ON COLUMN :schema_log.error.execution_id IS 'FK -> log.execution: Ausführung, in der der Fehler auftrat.';
-COMMENT ON COLUMN :schema_log.error.component_id IS 'Zugehörige Komponente (optional).';
-COMMENT ON COLUMN :schema_log.error.trace_id IS 'Zugehöriger Trace-Eintrag (optional).';
-COMMENT ON COLUMN :schema_log.error.error_type IS 'Schweregrad: E=Error, W=Warning, I=Info.';
-COMMENT ON COLUMN :schema_log.error.source IS 'Herkunft/Typ der fehlerverursachenden Komponente.';
-COMMENT ON COLUMN :schema_log.error.component IS 'Name der fehlerverursachenden Komponente.';
-COMMENT ON COLUMN :schema_log.error.task_name IS 'Task-/Arbeitsschritt-Name (optional).';
-COMMENT ON COLUMN :schema_log.error.entity IS 'Fachliche Entität, bei der der Fehler auftrat.';
-COMMENT ON COLUMN :schema_log.error.step IS 'Verarbeitungsschritt.';
-COMMENT ON COLUMN :schema_log.error.schema_name IS 'Schema der betroffenen Tabelle.';
-COMMENT ON COLUMN :schema_log.error.table_name IS 'Betroffene Tabelle.';
-COMMENT ON COLUMN :schema_log.error.id1_value IS 'Wert der 1. Identifizierungsspalte des fehlerhaften Datensatzes.';
-COMMENT ON COLUMN :schema_log.error.id1_column_name IS 'Name der 1. Identifizierungsspalte.';
-COMMENT ON COLUMN :schema_log.error.id2_value IS 'Wert der 2. Identifizierungsspalte (optional).';
-COMMENT ON COLUMN :schema_log.error.id2_column_name IS 'Name der 2. Identifizierungsspalte (optional).';
-COMMENT ON COLUMN :schema_log.error.id3_value IS 'Wert der 3. Identifizierungsspalte (optional).';
-COMMENT ON COLUMN :schema_log.error.id3_column_name IS 'Name der 3. Identifizierungsspalte (optional).';
-COMMENT ON COLUMN :schema_log.error.error_value IS 'Fehlerhafter Wert der geprüften Spalte.';
+COMMENT ON TABLE  :schema_log.error                   IS 'Protokollierung von Datenfehlern (Severity ueber error_type: E/W/I).';
+
+COMMENT ON COLUMN :schema_log.error.execution_id      IS 'FK -> log.execution: Ausführung, in der der Fehler auftrat.';
+COMMENT ON COLUMN :schema_log.error.component_id      IS 'Zugehörige Komponente (optional).';
+COMMENT ON COLUMN :schema_log.error.trace_id          IS 'Zugehöriger Trace-Eintrag (optional).';
+COMMENT ON COLUMN :schema_log.error.error_type        IS 'Schweregrad: E=Error, W=Warning, I=Info.';
+COMMENT ON COLUMN :schema_log.error.source            IS 'Herkunft/Typ der fehlerverursachenden Komponente.';
+COMMENT ON COLUMN :schema_log.error.component         IS 'Name der fehlerverursachenden Komponente.';
+COMMENT ON COLUMN :schema_log.error.task_name         IS 'Task-/Arbeitsschritt-Name (optional).';
+COMMENT ON COLUMN :schema_log.error.entity            IS 'Fachliche Entität, bei der der Fehler auftrat.';
+COMMENT ON COLUMN :schema_log.error.step              IS 'Verarbeitungsschritt.';
+COMMENT ON COLUMN :schema_log.error.schema_name       IS 'Schema der betroffenen Tabelle.';
+COMMENT ON COLUMN :schema_log.error.table_name        IS 'Betroffene Tabelle.';
+COMMENT ON COLUMN :schema_log.error.id1_value         IS 'Wert der 1. Identifizierungsspalte des fehlerhaften Datensatzes.';
+COMMENT ON COLUMN :schema_log.error.id1_column_name   IS 'Name der 1. Identifizierungsspalte.';
+COMMENT ON COLUMN :schema_log.error.id2_value         IS 'Wert der 2. Identifizierungsspalte (optional).';
+COMMENT ON COLUMN :schema_log.error.id2_column_name   IS 'Name der 2. Identifizierungsspalte (optional).';
+COMMENT ON COLUMN :schema_log.error.id3_value         IS 'Wert der 3. Identifizierungsspalte (optional).';
+COMMENT ON COLUMN :schema_log.error.id3_column_name   IS 'Name der 3. Identifizierungsspalte (optional).';
+COMMENT ON COLUMN :schema_log.error.error_value       IS 'Fehlerhafter Wert der geprüften Spalte.';
 COMMENT ON COLUMN :schema_log.error.error_column_name IS 'Name der Spalte mit dem fehlerhaften Wert.';
-COMMENT ON COLUMN :schema_log.error.file_name IS 'Quelldatei, aus der der Datensatz stammt (optional).';
-COMMENT ON COLUMN :schema_log.error.description IS 'Beschreibung des Fehlers.';
-COMMENT ON COLUMN :schema_log.error.error_number IS 'Fehlernummer (technischer Code).';
-COMMENT ON COLUMN :schema_log.error.error_line IS 'Zeilennummer/Position des Fehlers.';
-COMMENT ON COLUMN :schema_log.error.error_state IS 'Technischer Fehler-Status/-Zustand.';
+COMMENT ON COLUMN :schema_log.error.file_name         IS 'Quelldatei, aus der der Datensatz stammt (optional).';
+COMMENT ON COLUMN :schema_log.error.description       IS 'Beschreibung des Fehlers.';
+COMMENT ON COLUMN :schema_log.error.error_number      IS 'Fehlernummer (technischer Code).';
+COMMENT ON COLUMN :schema_log.error.error_line        IS 'Zeilennummer/Position des Fehlers.';
+COMMENT ON COLUMN :schema_log.error.error_state       IS 'Technischer Fehler-Status/-Zustand.';
 
 \echo "## CREATE TABLE :schema_log.error - DONE"
