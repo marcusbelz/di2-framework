@@ -108,3 +108,83 @@ day-first vs. `MM/DD/YYYY` month-first).
   nach 0008, weil komplexer.
 - **Künftige Nutzer:** ETL-/Lade-Logik (nutzt `table_metadata.date_style`, `null_handling`,
   `check_data` etc.) ruft diese Konvertierungen beim Laden auf.
+
+---
+
+## Tech Design (Solution Architect)
+
+### Views nötig: **Nein**
+Reine Berechnungsfunktionen, keine lesende Sicht. → Nach `/backend` **kein** `/frontend`.
+
+### A) Objekt-Landschaft (vier Funktionen, keine Tabellen)
+Weitere Objekte im `helper`-Schema (setzt di2f-0008 fort). Keine Tabelle, kein Trigger, keine View,
+kein `etl`-Dynamic-SQL.
+```
+- helper.fn_convert_bit(p_value)                       — Text -> boolean (J/N/1/0/TRUE/FALSE/'' ; sonst NULL)
+- helper.fn_convert_date(p_value, p_date_style)        — Text + Style -> date
+- helper.fn_convert_datetime(p_value, p_date_style)    — Text + Style -> timestamp(3)   (Standard-Praezision)
+- helper.fn_convert_datetime2(p_value, p_date_style)   — Text + Style -> timestamp(6)   (hohe Praezision)
+```
+
+### B) Datenmodell (Klartext)
+**Keines.** Zustandslose Funktionen; Ergebnis hängt nur an den Eingabeparametern (und — bei den
+Datums-Funktionen — an der Session-`DateStyle`-/Locale-Einstellung, siehe Volatilität unten).
+
+### C) Schnittstellen (Zweck, kein Code)
+```
+- helper.fn_convert_bit(p_value)                     -> boolean       (NULL/unbekannt -> NULL)
+- helper.fn_convert_date(p_value, p_date_style)      -> date          (unparsbar -> NULL)
+- helper.fn_convert_datetime(p_value, p_date_style)  -> timestamp(3)  (unparsbar -> NULL)
+- helper.fn_convert_datetime2(p_value, p_date_style) -> timestamp(6)  (unparsbar -> NULL)
+```
+- Eingaben als `varchar`. `p_date_style` ist der **Format-Hinweis** (dieselben Tokens wie die Vorlage,
+  case-insensitiv); er bestimmt v. a. die **Tag-/Monat-Reihenfolge**.
+
+### D) Datenfluss & Protokollierung
+- **Kein** Log-Kette-Bezug. Die Funktionen sind Bausteine für die künftige ETL-/Lade-Logik.
+- **Keine** Exceptions nach außen: ein unparsbarer Wert wird intern abgefangen und als **NULL**
+  zurückgegeben (der aufrufende Lade-Prozess entscheidet, ob daraus ein `log.error` wird).
+
+### E) Tech-Entscheidungen (für PM begründet)
+1. **Style-Interface über eine interne Zuordnungstabelle.** Die Funktion hält eine **dokumentierte
+   Zuordnung** „Style-Token → PostgreSQL-Format-Maske" und parst den Wert mit der passenden Maske.
+   *Warum:* erhält das Vorlage-Interface (gleiche Aufrufe über DBMS) und macht die unterstützten
+   Formate an **einer** Stelle sichtbar/erweiterbar.
+2. **Unbekannter Style → NULL** (kein Best-Effort-Raten). *Warum:* Vorhersagbarkeit beim Laden — ein
+   mehrdeutiges Datum (`01/02/2018`) darf nicht **still** falsch geparst werden; der Aufrufer muss
+   einen bekannten Style liefern. Die dokumentierte Token-Liste ist der Vertrag. *(Bewusste Abweichung
+   von der SQL-Server-`datetime`-Variante, die auf einen Default zurückfiel.)*
+3. **Unparsbarer Wert → NULL** über internen Fehler-Abfang (kein `RAISE` nach außen). *Warum:* ein
+   einzelner Datenfehler darf den Batch nicht abbrechen (AK6).
+4. **`fn_convert_bit`: originalgetreue Token-Menge** — `1/0/J/N/TRUE/FALSE` und leer→false,
+   case-insensitiv, vorab getrimmt; alles andere → NULL. *Warum:* faithful zur Vorlage; die Liste
+   liegt zentral und ist trivial erweiterbar (z. B. `JA/NEIN/YES/NO`), falls später gewünscht — bewusst
+   **jetzt nicht**, um Scope/Überraschungen klein zu halten.
+5. **Präzision erhält die SQL-Server-Semantik:** `fn_convert_datetime` → **`timestamp(3)`**
+   (Millisekunden ≈ SQL-Server `datetime`), `fn_convert_datetime2` → **`timestamp(6)`** (Mikrosekunden,
+   nächster PG-Verwandter zu `datetime2`), `fn_convert_date` → **`date`**. *Warum:* in PostgreSQL gäbe
+   es sonst keinen Unterschied zwischen `datetime` und `datetime2` — die getrennten Präzisionen halten
+   beide Funktionen sinnvoll **und** spiegeln die Quell-Typen (Hinweis: `datetime2(7)` = 100 ns lässt
+   sich in PG nur bis µs abbilden — dokumentiert, für die Zwecke ausreichend).
+6. **Volatilität: `fn_convert_bit` ist `IMMUTABLE`, die drei Datums-Funktionen sind `STABLE`.**
+   *Warum:* Text→Datum/Zeit-Parsen in PostgreSQL kann von der Session-Einstellung (`DateStyle`) und der
+   Locale (Monatsnamen `MON`, `AM/PM`) abhängen — `IMMUTABLE` wäre dann **falsch** (der Planer dürfte
+   veraltete Ergebnisse cachen). `STABLE` ist hier korrekt. *(Bewusste, begründete Abweichung von der
+   „helper-Konvertierungen sind IMMUTABLE"-Faustregel in `functions.md`; reine String-Logik wie
+   `fn_convert_bit` bleibt IMMUTABLE.)*
+7. **Datei-Nummerierung `005.`…`008.`** im `helper`-Schema (setzt di2f-0008 `001.`–`004.` fort) — keine
+   Tabelle als Anker (s. Konventions-Notiz in di2f-0008).
+8. **Dünne Wrapper um PostgreSQL-Bordmittel** (Text→Datum-Parsen, `to_*`-Funktionen) — der Wert liegt
+   im stabilen benannten Aufruf (Portabilitäts-Naht), nicht im Parser selbst.
+
+### F) Abhängigkeiten
+- **Requires:** Schema `helper` + Owner (`db/database/`) — vorhanden. Owner `:schema_owner`, aufrufbar
+  durch `:role_rw`.
+- **Unabhängig von di2f-0008**; **keine** Extensions, **kein** `etl`, **keine** RLS/Tabellen.
+
+### Hinweis für `/backend`
+Vier `CREATE OR REPLACE FUNCTION`-Skripte unter `db/schemas/helper/functions/` (`005.`–`008.`),
+`OWNER TO :schema_owner`. `fn_convert_bit` `IMMUTABLE`; Datums-Funktionen `STABLE` mit internem
+Fehler-Abfang → NULL. Eine **dokumentierte Style→Masken-Tabelle** im Skript pflegen (AK10). Smoke-Test
+gegen die AK-Wertetabellen (aus den Vorlage-Testfällen, inkl. Tag-/Monat-Reihenfolge und
+Sub-Sekunden).
