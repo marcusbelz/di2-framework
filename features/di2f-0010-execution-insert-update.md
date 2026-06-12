@@ -334,6 +334,7 @@ verifiziert. Nächster Schritt: `/deploy dev`.
 |-----|-------|--------|----------|----------|
 | dev | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün |
 | int | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=int, Branch dev) | ✅ grün |
+| test | 2026-06-12 | `9b89b44` | „DB - deploy" (schema=all, env=test, Branch dev) | ✅ grün |
 
 - **Push-Voraussetzung:** Die di2f-0010-Commits (`99e5daf`/`2650ab2`/`9ecb0ff`) lagen zunächst nur
   lokal; ein erster dev/int-Deploy-Anlauf lief noch gegen `origin/dev = f1c5240` (**ohne**
