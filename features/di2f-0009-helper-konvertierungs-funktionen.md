@@ -188,3 +188,43 @@ Vier `CREATE OR REPLACE FUNCTION`-Skripte unter `db/schemas/helper/functions/` (
 Fehler-Abfang → NULL. Eine **dokumentierte Style→Masken-Tabelle** im Skript pflegen (AK10). Smoke-Test
 gegen die AK-Wertetabellen (aus den Vorlage-Testfällen, inkl. Tag-/Monat-Reihenfolge und
 Sub-Sekunden).
+
+---
+
+## Implementierung (Backend)
+
+**Objekte** (helper-Funktionen `005.`–`008.`, Owner `:schema_owner`):
+- [`005.fn_convert_bit.sql`](../db/schemas/helper/functions/005.fn_convert_bit.sql) — `IMMUTABLE`
+- [`006.fn_convert_date.sql`](../db/schemas/helper/functions/006.fn_convert_date.sql) — `STABLE`
+- [`007.fn_convert_datetime.sql`](../db/schemas/helper/functions/007.fn_convert_datetime.sql) — `STABLE`
+- [`008.fn_convert_datetime2.sql`](../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — `STABLE` (Kern)
+
+**Implementierte Signaturen:**
+```
+helper.fn_convert_bit(p_value varchar)                          -> boolean
+helper.fn_convert_date(p_value varchar, p_date_style varchar)       -> date
+helper.fn_convert_datetime(p_value varchar, p_date_style varchar)   -> timestamp(3)
+helper.fn_convert_datetime2(p_value varchar, p_date_style varchar)  -> timestamp(6)
+```
+
+**Umsetzung / Details:**
+- **`fn_convert_datetime2` ist der Kern:** hält die zentrale **Style→PG-Masken-Tabelle** (CASE über die
+  case-insensitiv normalisierten Style-Tokens), parst per `to_timestamp(wert, maske)::timestamp(6)`.
+  Unbekannter Style → NULL (vor dem Parsen); unparsbarer Wert → NULL über `EXCEPTION WHEN others`.
+- **`fn_convert_date` / `fn_convert_datetime` delegieren** an `fn_convert_datetime2` und casten
+  (`::date` bzw. `::timestamp(3)`) — **eine** Masken-Tabelle, keine Duplizierung. (Vorwärts-Referenz
+  auf `008` ist unkritisch: PL/pgSQL-Bodies werden erst zur Laufzeit geprüft.)
+- **`fn_convert_bit`** ist reine String-Logik (`upper(btrim(...))` + CASE) → `IMMUTABLE`.
+- **Volatilität:** Datums-Funktionen `STABLE` (Text→Datum-Parsen hängt an DateStyle/Locale —
+  Monatsnamen `MON`, `AM/PM`); `fn_convert_bit` `IMMUTABLE`.
+- **ISO-`Z`:** endet der Style auf `z`, wird ein abschließendes `Z` aus dem Wert entfernt.
+- **Zonenlos:** `to_timestamp` liefert `timestamptz`; `::timestamp(n)` ergibt den zonenlosen Wandwert.
+
+**Smoke-Test (PostgreSQL 17, Container, gegen `helper` in `di2f`):**
+- AK1 (`convert_bit`: 1/0/J/N/true/false/''/' '/'j'/'X'/NULL) ✅
+- AK2 ISO/`YYYYMMDD`, AK3 Tag-/Monat-Reihenfolge (`17.08.2018`=`08/17/2018`=2018-08-17), AK4 `date`
+  verwirft Zeit, AK5 `datetime2` `.654` ms-genau, AK6 unparsbar→NULL, AK7 NULL/unbekannter Style→NULL,
+  AK8 Style case-insensitiv ✅
+- Zusatz aus der Vorlage: Monatsnamen + 12h (`Aug 17 2018 12:27PM`), `DD MON YYYY` ✅
+- Volatilität (1× IMMUTABLE, 3× STABLE) + Rückgabetypen + Owner per Catalog geprüft; doppelter Deploy
+  idempotent. ✅
