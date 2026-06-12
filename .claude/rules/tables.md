@@ -147,18 +147,32 @@ ALTER TABLE :schema_name.example ADD  CONSTRAINT fk_example_parent_id FOREIGN KE
   `-- Foreign keys`).
 - **Reihenfolge:** erst `COMMENT ON TABLE`, dann die `COMMENT ON COLUMN` in der Spalten-Reihenfolge
   des `CREATE TABLE`.
+- **Tabellenkommentar abgesetzt:** zwischen der `COMMENT ON TABLE`-Zeile und der ersten
+  `COMMENT ON COLUMN`-Zeile steht **eine Leerzeile** — der Tabellenkommentar wird optisch von den
+  Spaltenkommentaren getrennt. Zwischen den `COMMENT ON COLUMN`-Zeilen untereinander keine Leerzeilen.
 - **Referenz-Start ausgerichtet:** `COMMENT ON TABLE ` mit 2 Spaces, `COMMENT ON COLUMN ` mit 1 Space,
   sodass Tabellen- und Spaltenreferenz in **derselben Spalte** beginnen.
-- **`IS`-Klausel nicht** tabellarisch ausgerichtet (Referenzlängen variieren zu stark); Schema stets
-  über die Variable, Beschreibungstext in einfachen Hochkommas (Umlaute/ß zulässig).
+- **`IS`-Klausel tabellarisch ausgerichtet:** die Objektreferenzen werden rechts mit Leerzeichen
+  aufgefüllt, sodass das `IS`-Schlüsselwort über **alle** `COMMENT`-Zeilen des Blocks in **derselben
+  Spalte** fluchtet (gemeinsame Spalte = längste Referenz des Blocks + ein Abstand). Dadurch stehen
+  Referenz, `IS` und Beschreibungstext wie Tabellenspalten untereinander; längere Referenzen laufen
+  über und brechen das Alignment nur für ihre eigene Zeile (Overflow erlaubt, vgl. das tabellarische
+  Alignment in sql.md). Schema stets über die Variable, Beschreibungstext in einfachen Hochkommas
+  (Umlaute/ß zulässig).
 
 ```sql
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_config.process IS 'Stammdaten: benannte Prozesse (Konfigurationsdaten).';
-COMMENT ON COLUMN :schema_config.process.name IS 'Eindeutiger Prozessname (Natural Key, UNIQUE).';
+COMMENT ON TABLE  :schema_config.process            IS 'Stammdaten: benannte Prozesse (Konfigurationsdaten).';
+
+COMMENT ON COLUMN :schema_config.process.name       IS 'Eindeutiger Prozessname (Natural Key, UNIQUE).';
+COMMENT ON COLUMN :schema_config.process.is_active  IS 'Steuert, ob der Prozess aktiv verwendet wird.';
 ```
+
+(`IS` fluchtet über alle Zeilen — die kürzeren Referenzen `…process` / `…process.name` sind bis zur
+Spalte der längsten Referenz `…process.is_active` aufgefüllt. Tabellenkommentar durch eine Leerzeile
+von den Spaltenkommentaren abgesetzt.)
 
 ## INSERT / Seed
 

@@ -35,18 +35,19 @@ ALTER TABLE :schema_log.trace ADD  CONSTRAINT fk_trace_execution_id FOREIGN KEY 
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_log.trace IS 'Detaillierte Protokollierung je Einzelaktion im Prozess (unterste Ebene).';
-COMMENT ON COLUMN :schema_log.trace.execution_id IS 'FK -> log.execution: zugehörige Prozessausführung.';
-COMMENT ON COLUMN :schema_log.trace.component_id IS 'FK -> log.component: zugehörige Komponente.';
-COMMENT ON COLUMN :schema_log.trace.source IS 'Herkunft/Typ der protokollierten Aktion.';
-COMMENT ON COLUMN :schema_log.trace.component IS 'Name der ausführenden Komponente.';
-COMMENT ON COLUMN :schema_log.trace.task IS 'Task-/Arbeitsschritt-Name (optional).';
-COMMENT ON COLUMN :schema_log.trace.entity IS 'Fachliche Entität der Aktion.';
-COMMENT ON COLUMN :schema_log.trace.step IS 'Verarbeitungsschritt.';
-COMMENT ON COLUMN :schema_log.trace.description IS 'Beschreibung der Einzelaktion.';
-COMMENT ON COLUMN :schema_log.trace.action IS 'Art der Aktion (z. B. INSERT/UPDATE/DELETE).';
+COMMENT ON TABLE  :schema_log.trace               IS 'Detaillierte Protokollierung je Einzelaktion im Prozess (unterste Ebene).';
+
+COMMENT ON COLUMN :schema_log.trace.execution_id  IS 'FK -> log.execution: zugehörige Prozessausführung.';
+COMMENT ON COLUMN :schema_log.trace.component_id  IS 'FK -> log.component: zugehörige Komponente.';
+COMMENT ON COLUMN :schema_log.trace.source        IS 'Herkunft/Typ der protokollierten Aktion.';
+COMMENT ON COLUMN :schema_log.trace.component     IS 'Name der ausführenden Komponente.';
+COMMENT ON COLUMN :schema_log.trace.task          IS 'Task-/Arbeitsschritt-Name (optional).';
+COMMENT ON COLUMN :schema_log.trace.entity        IS 'Fachliche Entität der Aktion.';
+COMMENT ON COLUMN :schema_log.trace.step          IS 'Verarbeitungsschritt.';
+COMMENT ON COLUMN :schema_log.trace.description   IS 'Beschreibung der Einzelaktion.';
+COMMENT ON COLUMN :schema_log.trace.action        IS 'Art der Aktion (z. B. INSERT/UPDATE/DELETE).';
 COMMENT ON COLUMN :schema_log.trace.affected_rows IS 'Anzahl der von der Aktion betroffenen Zeilen.';
-COMMENT ON COLUMN :schema_log.trace.state IS 'Status der Aktion.';
-COMMENT ON COLUMN :schema_log.trace.success IS 'Aktion erfolgreich (true/false).';
+COMMENT ON COLUMN :schema_log.trace.state         IS 'Status der Aktion.';
+COMMENT ON COLUMN :schema_log.trace.success       IS 'Aktion erfolgreich (true/false).';
 
 \echo "## CREATE TABLE :schema_log.trace - DONE"

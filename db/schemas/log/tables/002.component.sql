@@ -30,15 +30,16 @@ ALTER TABLE :schema_log.component ADD  CONSTRAINT fk_component_execution_id FORE
 -- --------------------------------------------------------------------------------
 -- Comments
 -- --------------------------------------------------------------------------------
-COMMENT ON TABLE  :schema_log.component IS 'Protokollierung je Komponente (Prozedur/Python-Funktion) (Komponentenebene).';
+COMMENT ON TABLE  :schema_log.component              IS 'Protokollierung je Komponente (Prozedur/Python-Funktion) (Komponentenebene).';
+
 COMMENT ON COLUMN :schema_log.component.execution_id IS 'FK -> log.execution: übergeordnete Prozessausführung.';
-COMMENT ON COLUMN :schema_log.component.source IS 'Herkunft/Typ der Komponente (z. B. plpgsql).';
-COMMENT ON COLUMN :schema_log.component.component IS 'Name der Komponente (Prozedur/Python-Funktion).';
-COMMENT ON COLUMN :schema_log.component.version IS 'Version der Komponente.';
-COMMENT ON COLUMN :schema_log.component.entity IS 'Fachliche Entität, die die Komponente bearbeitet.';
-COMMENT ON COLUMN :schema_log.component.step IS 'Verarbeitungsschritt innerhalb der Komponente.';
-COMMENT ON COLUMN :schema_log.component.description IS 'Beschreibung der Komponentenausführung.';
-COMMENT ON COLUMN :schema_log.component.state IS 'Aktueller Status der Komponente.';
-COMMENT ON COLUMN :schema_log.component.success IS 'Erfolgreich abgeschlossen (true/false; NULL = laufend).';
+COMMENT ON COLUMN :schema_log.component.source       IS 'Herkunft/Typ der Komponente (z. B. plpgsql).';
+COMMENT ON COLUMN :schema_log.component.component    IS 'Name der Komponente (Prozedur/Python-Funktion).';
+COMMENT ON COLUMN :schema_log.component.version      IS 'Version der Komponente.';
+COMMENT ON COLUMN :schema_log.component.entity       IS 'Fachliche Entität, die die Komponente bearbeitet.';
+COMMENT ON COLUMN :schema_log.component.step         IS 'Verarbeitungsschritt innerhalb der Komponente.';
+COMMENT ON COLUMN :schema_log.component.description  IS 'Beschreibung der Komponentenausführung.';
+COMMENT ON COLUMN :schema_log.component.state        IS 'Aktueller Status der Komponente.';
+COMMENT ON COLUMN :schema_log.component.success      IS 'Erfolgreich abgeschlossen (true/false; NULL = laufend).';
 
 \echo "## CREATE TABLE :schema_log.component - DONE"

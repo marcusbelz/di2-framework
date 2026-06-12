@@ -1,7 +1,7 @@
 # di2f-0005: DB-CI — Dry-Run-Deploy + Lint (GitHub Actions, Required-Gate)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** — (CI/CD / Qualitäts-Gate; kein DB-Schema betroffen)
 
 ## Problem / Motivation
@@ -212,3 +212,23 @@ Beide Jobs grün ⇒ CI grün. `local`-Creds sind hartkodiert `pw` ⇒ **keine S
 - **Minor #1 umgesetzt** — `ci.yml` pinnt `sqlfluff==3.5.0`. Der Pin deckte auf, dass 3.5.0 die Regel `PG01`/`postgres.excessive_locks` **nicht mehr** enthält (sqlfluff hat sie zwischen Minors entfernt — genau die Drift, die der Minor adressiert). Der BUG-0002-Exclude war in 3.5.0 ein ungültiger Verweis (`WARNING`) → aus `.sqlfluff` entfernt; `CREATE INDEX` lintet in 3.5.0 ohnehin grün. Kommentar in `.sqlfluff` dokumentiert das Wieder-Aufnehmen bei einem Versions-Bump.
 - **Minor #2 umgesetzt** — `.github/sqlfluff-lint.sh` warnt jetzt, wenn ein `SKIP`-Eintrag keine Datei mehr trifft (Drift-Erkennung).
 - **Minor #3 offen** — Ausführung ungetrusteten PR-SQL im `dry-run-deploy` bleibt `/security`-Kandidat (kein Code-Fix).
+
+---
+
+## Deployment
+
+> di2f-0005 deployt **keine DB-Objekte** — der klassische `/deploy dev/int/test/prod`-Pfad
+> (SSH→Hetzner) ist nicht einschlägig. „Go-Live" = die CI-Artefakte (`ci.yml` + Lint-Konfig) liegen
+> auf `main`, und der Required-Status-Check ist im `protect-main`-Ruleset aktiv. Status damit **Deployed**.
+
+| Artefakt / Gate | Stand | Datum |
+|-----------------|-------|-------|
+| `ci.yml` aktiv auf `dev` (Trigger `push`→`dev`) | ✅ erster Lauf grün | 2026-06-11 |
+| `ci.yml` auf `main` (Trigger `pull_request`→`main`, Gate) | ✅ gemergt + aktiv | 2026-06-11 |
+| Required-Check (`dry-run-deploy` + `lint`) im `protect-main`-Ruleset | ✅ als „Required" gesetzt | 2026-06-11 |
+
+- Wirksam als **Pflicht-Gate**: jeder PR nach `main` muss beide CI-Jobs grün haben — zuletzt belegt
+  durch den `dev`→`main`-PR #5 (di2f-0001-Prod-Bookkeeping), der durch genau diesen Check lief.
+- Spätere Bestätigung beim laufenden Betrieb (2026-06-12): CI-Läufe auf den di2f-0001-Pushes grün
+  (inkl. Lint-SKIP der Bootstrap-Preflight, Commit `25cf522`).
+- Kein Release-Tag (CI-Tooling, kein Framework-Versionsstand).
