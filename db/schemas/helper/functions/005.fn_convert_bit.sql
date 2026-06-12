@@ -27,13 +27,16 @@ BEGIN
    l_value := upper(btrim(p_value));
 
    RETURN CASE l_value
+             WHEN 'TRUE'  THEN true
              WHEN '1'     THEN true
              WHEN 'J'     THEN true
-             WHEN 'TRUE'  THEN true
+             WHEN 'Y'     THEN true
+
+             WHEN 'FALSE' THEN false
              WHEN '0'     THEN false
              WHEN 'N'     THEN false
-             WHEN 'FALSE' THEN false
              WHEN ''      THEN false
+
              ELSE NULL
           END;
 

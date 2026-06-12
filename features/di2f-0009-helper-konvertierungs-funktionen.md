@@ -32,8 +32,9 @@ in [di2f-0008](di2f-0008-helper-string-funktionen.md)), sollen diese Konvertieru
 Vier **reine** (seiteneffektfreie) Funktionen im Schema `helper`:
 
 - **`helper.fn_convert_bit(p_value)` → boolean** — wandelt einen Text in `boolean`:
-  `'1'`/`'J'`/`'TRUE'` → **true**; `'0'`/`'N'`/`'FALSE'`/`''` → **false**; `NULL` → **NULL**; sonst →
-  **NULL**. Case-insensitiv, vorab getrimmt.
+  `'1'`/`'J'`/`'Y'`/`'TRUE'` → **true**; `'0'`/`'N'`/`'FALSE'`/`''` → **false**; `NULL` → **NULL**; sonst
+  → **NULL**. Case-insensitiv, vorab getrimmt. *(`'Y'` als true-Token bei der Umsetzung ergänzt —
+  Einzelbuchstabe, deckt Yes/Ja ab; `'YES'`/`'NO'` als Wort werden bewusst **nicht** erkannt → NULL.)*
 - **`helper.fn_convert_date(p_value, p_date_style)` → date** — parst einen Datums-/Zeit-String gemäß
   Style-Hinweis und liefert das **Datum** (Zeitanteil verworfen).
 - **`helper.fn_convert_datetime(p_value, p_date_style)` → timestamp** — wie oben, liefert
@@ -67,9 +68,9 @@ day-first vs. `MM/DD/YYYY` month-first).
 ## Akzeptanzkriterien
 > Werte aus den Testfällen der Vorlage abgeleitet.
 
-1. **`fn_convert_bit`**: `'1'`→true, `'0'`→false, `'J'`→true, `'N'`→false, `'true'`→true,
-   `'false'`→false, `''`→false, `' '`→false (Trim), `'X'`→**NULL**, `NULL`→**NULL**. Case-insensitiv
-   (`'j'`=`'J'`).
+1. **`fn_convert_bit`**: `'1'`→true, `'0'`→false, `'J'`→true, `'N'`→false, `'Y'`→true, `'true'`→true,
+   `'false'`→false, `''`→false, `' '`→false (Trim), `'X'`→**NULL**, `'YES'`/`'NO'`→**NULL**,
+   `NULL`→**NULL**. Case-insensitiv (`'j'`=`'J'`, `'y'`=`'Y'`).
 2. **`fn_convert_datetime`** parst ISO/`YYYY`-Formate korrekt, z. B. `('2018-08-17 12:27:40',
    'YYYY-MM-DD hh:mi:ss')` → `2018-08-17 12:27:40`; `('20180817','YYYYMMDD')` → `2018-08-17 00:00:00`.
 3. **Tag-/Monat-Reihenfolge** ist eindeutig: `('17.08.2018','DD.MM.YYYY')` → `2018-08-17` und
@@ -90,8 +91,8 @@ day-first vs. `MM/DD/YYYY` month-first).
 
 ## Edge Cases
 - **`fn_convert_bit`** mit gemischter Schreibweise/Whitespace (`' j '`, `'TRUE'`, `'Wahr'?`) — nur die
-  definierten Tokens (`1/0/J/N/TRUE/FALSE/''`) werden erkannt, alles andere → **NULL**. (Token-Liste in
-  `/architecture` final, deutschsprachige Zusätze wie `'Ja'/'Nein'` optional erwägen.)
+  definierten Tokens (`1/J/Y/TRUE` → true; `0/N/FALSE/''` → false) werden erkannt, alles andere
+  (inkl. `'YES'`/`'NO'`/`'Ja'`/`'Nein'`) → **NULL**. Token-Liste zentral erweiterbar.
 - **Mehrdeutige Datumswerte** (`'01/02/2018'`): das Ergebnis hängt **allein am Style** (DD/MM vs MM/DD) —
   kein Raten; ohne passenden Style ggf. NULL.
 - **Unvollständige/abweichende Werte** zum Style (z. B. Style `'YYYY-MM-DD'`, Wert enthält Zeit) →
@@ -228,3 +229,54 @@ helper.fn_convert_datetime2(p_value varchar, p_date_style varchar)  -> timestamp
 - Zusatz aus der Vorlage: Monatsnamen + 12h (`Aug 17 2018 12:27PM`), `DD MON YYYY` ✅
 - Volatilität (1× IMMUTABLE, 3× STABLE) + Rückgabetypen + Owner per Catalog geprüft; doppelter Deploy
   idempotent. ✅
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (0 Bugs)
+
+**Testaufbau:** PostgreSQL 17 (Container), `helper`-Funktionen deployt. Neues **permanentes Testskript**
+[db/tests/helper/005.konvertierungs_funktionen.sql](../db/tests/helper/005.konvertierungs_funktionen.sql)
+(psql/`ASSERT`), Wertetabellen aus den **UNION-ALL-Gold-Standard-Fällen** der SQL-Server-Vorlage.
+
+### Akzeptanzkriterien
+| AK | Inhalt | Ergebnis |
+|----|--------|----------|
+| 1 | `fn_convert_bit` (1/0/J/N/**Y**/true/false/''/' '/'X'/'YES'/'NO'/NULL) | ✅ inkl. `Y`/`y`→true, `YES`/`NO`→NULL |
+| 2/10 | 18 dokumentierte Style-Tokens parsen korrekt (Gold-Standard-Tabelle) | ✅ |
+| 3 | Tag-/Monat-Reihenfolge eindeutig (`17.08.2018`=`08/17/2018`=2018-08-17) | ✅ |
+| 4 | `fn_convert_date` verwirft Zeit | ✅ |
+| 5 | `fn_convert_datetime2` ms-genau (`.654`) | ✅ |
+| 6 | unparsbar → NULL (alle 3 Datums-Funktionen) | ✅ |
+| 7 | NULL-Wert / unbekannter Style → NULL | ✅ |
+| 8 | Style case-insensitiv | ✅ |
+| 9 | deterministisch + idempotenter Deploy | ✅ |
+
+### Edge Cases (alle ✅)
+- ISO-`Z`-Style (`…mmmz`) → abschließendes `Z` entfernt, korrekt geparst.
+- Monatsnamen (`Aug`) + 12h-AM/PM; 24h-Varianten; `:`-getrennte Millisekunden (`…:654`).
+- `datetime` (`timestamp(3)`) und `datetime2` (`timestamp(6)`) liefern bei den `.mmm`-Styles **denselben
+  Wert** — die Unterscheidung ist der Rückgabe-**Typ** (Präzision), korrekt so (Masken reichen bis ms).
+
+### Feature-spezifische Security-Checks
+- **Injection:** kein Dynamic SQL; `l_mask` stammt aus interner `CASE`-Tabelle (nicht Eingabe),
+  `l_value` geht als **Datenargument** an `to_timestamp` (keine Konkatenation). ✅
+- **SECURITY DEFINER:** nein (alle 4 `prosecdef = false`). ✅
+- **Rechte:** unter `di2f_rw` ausführbar; Owner `…_fw`. ✅
+- **Sensible Daten / RLS:** N/A. ✅
+
+### Hinweise (informativ, keine Bugs)
+- **`'Y'` als true-Token** wurde bei der Umsetzung ergänzt (über die ursprüngliche AK1-Liste hinaus);
+  Spec ist nachgezogen (Scope/AK1/Edge). `'YES'`/`'NO'` werden **nicht** erkannt (→ NULL) — bewusst nur
+  Einzelbuchstaben.
+- **Zeit-only-Styles** (`hh:mm:ss`, `hh:mi:ss:mmm`) sind in der Masken-Tabelle enthalten, aber als
+  Datums-Konvertierung degeneriert (Datumsanteil aus PG-Default) — nicht im AK-Fokus, nicht getestet.
+
+### Kandidaten für nächsten `/security`-Run
+- Wie di2f-0008: **Default-`EXECUTE`-auf-Funktionen** (PG grantet an `PUBLIC`, Bootstrap revoke't nicht)
+  — projektweite Funktions-Grant-Policy prüfen.
+
+### Regression
+- di2f-0006/0007/0008 unberührt; `helper`-Funktionen isoliert (eigenes Schema). `deploy.sh all local`
+  grün. ✅
