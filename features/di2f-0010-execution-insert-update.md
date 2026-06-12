@@ -239,3 +239,89 @@ nutzt `config.sp_ins_process` (di2f-0001) intensiv → gemeinsam genutzte config
 **READY.** Keine Critical/High/Medium-Bugs. AK 1–18 + alle Edge Cases bestanden, idempotent,
 least-privilege verifiziert. Offene Punkte sind Verifikations-/Defense-in-depth-Kandidaten für
 `/security`, keine Code-Defekte.
+
+---
+
+## Code Review
+
+- **Reviewer:** `/review` (Claude) · **Datum:** 2026-06-12
+- **Commit-Range (di2f-0010):** `99e5daf` (Backend + Spec) · `2650ab2` (QA-Testskript). Base
+  `f1c5240`. Die übrigen Dateien in `main…HEAD` (113) gehören zu di2f-0001…0009 (eigenständig
+  review't/deployt) — **nicht** Teil dieses Reviews.
+- **Diff-Scope:** 6 Prozeduren unter `db/schemas/log/procedures/001.*`, Testskript
+  `db/tests/log/001.execution.sql`, Spec + INDEX/PRD-Tracking. Keine fremden Dateien, keine
+  Strukturänderung an `log.execution`.
+
+### Spec ↔ Code
+Jedes Akzeptanzkriterium im Diff lokalisiert und durch `/qa` belegt:
+
+| AK | Ort im Code |
+|----|-------------|
+| 1,4,5 | [001.sp_ins_execution.sql:114-142](../db/schemas/log/procedures/001.sp_ins_execution.sql#L114) (`INSERT … RETURNING`; `start_on=l_start`, `end_on=NULL`, `delta_end=l_start`, `state='processing'`, `success=false`) |
+| 2,3 | [001.sp_ins_execution.sql:57-73](../db/schemas/log/procedures/001.sp_ins_execution.sql#L57) (NULL-Guard + `NOT EXISTS config.process` → `foreign_key_violation`) |
+| 6,7 | [001.sp_ins_execution.sql:87-100](../db/schemas/log/procedures/001.sp_ins_execution.sql#L87) (Wasserzeichen-`SELECT`, `state IN (success,warning) AND success`, `LIMIT 1` → NULL bei Erstlauf) |
+| 8 | [001.sp_ins_execution.sql:103-112](../db/schemas/log/procedures/001.sp_ins_execution.sql#L103) (`release_version`, `ORDER BY deployed_on DESC, id DESC`) |
+| 9 | [001.sp_ins_execution.sql:135-137](../db/schemas/log/procedures/001.sp_ins_execution.sql#L135) (`current_user`, `p_machine`, `p_instance`) |
+| 10,11,12 | [001.sp_upd_execution.sql:51-101](../db/schemas/log/procedures/001.sp_upd_execution.sql#L51) (NULL/leer-Guards, Allowlist, Kombinatorik-`IF`) |
+| 13,15 | [001.sp_upd_execution.sql:110-125](../db/schemas/log/procedures/001.sp_upd_execution.sql#L110) (`UPDATE` nur state/success/end_on; `IF NOT FOUND` → `no_data_found`) |
+| 14 | Trigger `tr_u_execution` (di2f-0001) — Update fasst `modified_*` nicht an |
+| 16,17,18 | `001.sp_upd_execution_{error,success,warning,information}.sql` (delegieren per `CALL`) |
+
+Kein ungenannter Nebeneffekt; Datei-Scope passt exakt zum Feature.
+
+### Konventionen (`sql.md`, `procedures.md`)
+- Naming (`sp_<verb>_<entity>`, snake_case), Dollar-Quoting `$procedure$`, DROP-vor-CREATE mit voller
+  Signatur, `OWNER TO :schema_owner`, `\echo`-Kopf/Fuß: ✅
+- `:schema_log`/`:schema_owner` in DDL, Body schema-qualifiziert hartkodiert (`log.execution`,
+  `config.process`, `config.db_version`) — sql.md-Body-Ausnahme korrekt angewandt: ✅
+- `format($$…$$, …)` mit indizierten `%n$s`, Text in Hochkommas / Numerik+Boolean ohne,
+  `RAISE EXCEPTION USING` einzeilig, gültige ERRCODE-Condition-Names
+  (`invalid_parameter_value`/`foreign_key_violation`/`no_data_found`): ✅
+- Body-Struktur Get name / Check parameter / Workload, DECLARE-Banner-Gruppierung
+  (Common/Error Handling/Workload), Parameter-Reihenfolge „Identifier zuerst" (`INOUT p_id` vorn),
+  Parameter-Doku-Block, tabellarisches Alignment: ✅
+- Schlanke Get-name-Variante (Literal statt `lc_messages`/`PG_CONTEXT`) — etablierte Konvention aus
+  di2f-0001: ✅
+
+### Findings
+
+**Blocker:** keine. **Major:** keine.
+
+**Minor / Info:**
+1. **Lean-Wrapper-Struktur** — die vier Wrapper
+   ([001.sp_upd_execution_error.sql](../db/schemas/log/procedures/001.sp_upd_execution_error.sql) u. a.)
+   bestehen aus `Get name` + `Workload`(CALL) **ohne** `Check parameter`-Block. Zulässig, da reine
+   Delegatoren (Validierung vollständig in `sp_upd_execution`); konsistent mit der „optionalen
+   Check/Workload-Trennung" aus procedures.md. Kein Defekt — als bewusste Setzung notiert.
+2. **`end_on = now()` auch bei generischem Update auf `processing`** —
+   [001.sp_upd_execution.sql:114](../db/schemas/log/procedures/001.sp_upd_execution.sql#L114) finalisiert
+   `end_on` bei **jedem** Update, auch für die (gültige) Kombination `processing/false`. Spec-konform
+   (User: „Update setzt end_on"); die Wrapper sind terminal. Falls je ein **nicht-terminales**
+   Fortschritts-Update gebraucht wird, müsste `end_on` konditional werden. Info, kein Defekt.
+3. **Defense-in-depth `CHECK`-Constraint** — der Wasserzeichen-Filter
+   ([001.sp_ins_execution.sql:96](../db/schemas/log/procedures/001.sp_ins_execution.sql#L96)) ist
+   case-sensitiv und verlässt sich auf die `lower(trim())`-Normalisierung im Schreibpfad
+   ([001.sp_upd_execution.sql:79](../db/schemas/log/procedures/001.sp_upd_execution.sql#L79)). Ein
+   `CHECK`-Constraint auf `log.execution(state)` bzw. die volle `(state,success)`-Kombinatorik würde
+   die Invariante DB-seitig garantieren (gegen Out-of-band-Writes). Optional → `/security`-Kandidat.
+4. **Index für Wasserzeichen-Query (perf)** — die Watermark-`SELECT` filtert `process_id`
+   (Index `ix_execution_process_id` vorhanden) + `state`/`success` und sortiert nach `start_on`. Bei
+   sehr großen `execution`-Tabellen wäre ein partieller Index
+   `(process_id, start_on DESC) WHERE success AND state IN (…)` günstiger. Im Single-Tenant-/
+   Niedrigvolumen-Kontext unkritisch → Follow-up/`/security`-Perf-Notiz.
+
+### Security-Smells am Diff
+Kein Dynamic SQL (kein `EXECUTE`); `p_state` allowlist-validiert und nur als Wert genutzt; kein
+`SECURITY DEFINER` (INVOKER); Body schema-qualifiziert → kein `search_path`-Hijack; keine Secrets;
+Fehlermeldungen nur mit numerischen IDs + allowlisteten States. ✅
+
+### Deploy-Tauglichkeit
+Skripte am richtigen Ort (`db/schemas/log/procedures/`, Präfix `001` = Tabelle `execution`);
+Sektions-Reihenfolge (procedures nach tables/functions) löst Dependencies; idempotent
+(`DROP … IF EXISTS` + `CREATE OR REPLACE`, Deploy 2× rc=0 in QA). ✅
+
+### Empfehlung
+**Approve** — keine Blocker, keine Major; vier Minor/Info (Lean-Wrapper als bewusste Setzung,
+`end_on`-Semantik spec-konform, optionaler `CHECK`-Constraint + Perf-Index als `/security`-/
+Follow-up-Kandidaten). di2f-0010-Code ist korrekt, `/qa`-READY, idempotent, least-privilege
+verifiziert. Nächster Schritt: `/deploy dev`.
