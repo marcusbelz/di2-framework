@@ -344,3 +344,16 @@ Spec-seitig nachgezogen (kein Spec↔Code-Drift).
 **Approve** — konventionskonform, DRY, injection-sicher; Volatilität korrekt gesetzt; alle AKs im Code
 belegt. Der eine Minor ist optional. Nächster Schritt: `/deploy dev` (gemeinsam mit di2f-0008 möglich —
 beide `helper`-Funktionen, kein Stub-Vorbehalt).
+
+---
+
+## Deployment
+
+| Env | Datum | Branch | Commit | Status |
+|-----|-------|--------|--------|--------|
+| dev | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+| int | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+
+- Zusammen mit di2f-0008 ins `helper`-Schema deployt (acht Funktionen gesamt). Kein Stub-Vorbehalt.
+- **Verbleibend:** `test`/`prod` ausstehend; `prod` erst nach grünem `/security`-Gate.
+- Review-Minor (`EXCEPTION`-Eingrenzung) war bereits **vor** dem Deploy behoben.

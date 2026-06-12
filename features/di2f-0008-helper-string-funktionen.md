@@ -323,3 +323,18 @@ Datei-Scope passt exakt (4 Funktionen + Spec), keine Fremddateien, keine ungenan
 **Approve** — konventionskonforme, isolierte, injection-sichere Funktionen; alle AKs im Code belegt;
 IMMUTABLE bestätigt. Der eine Minor ist optional. Nächster Schritt: `/deploy dev` (gemeinsam mit
 di2f-0009 möglich — beide ins `helper`-Schema, kein Stub-Vorbehalt).
+
+---
+
+## Deployment
+
+| Env | Datum | Branch | Commit | Status |
+|-----|-------|--------|--------|--------|
+| dev | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+| int | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+
+- **Erste Objekte im `helper`-Schema** live (zusammen mit di2f-0009 deployt). Kein Stub-Vorbehalt —
+  nur neue Funktionen, keine Strukturänderung; normaler `deploy.sh helper`/`all` ohne `clean`.
+- **Verbleibend:** `test`/`prod` ausstehend; `prod` erst nach grünem `/security`-Gate.
+- Offener Review-Minor (`fn_split`-Trennzeichen nicht auf ein Zeichen validiert) weiterhin
+  nicht-blockierend offen.
