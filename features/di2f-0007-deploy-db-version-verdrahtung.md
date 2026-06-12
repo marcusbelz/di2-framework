@@ -110,3 +110,96 @@ das genaue „Wie" entscheidet `/architecture`):
 - **Requires:** di2f-0003 (Deploy-Runner `db/scripts/deploy.sh`) und di2f-0004 (GitHub-Actions-Deploy
   `db-deploy.yml`) — die hier erweiterten Pfade.
 - **Verwandt:** di2f-0002 (Branch→Umgebung-Strategie) liefert den Umgebungskontext.
+
+---
+
+## Tech Design (Solution Architect)
+
+### Views nötig: **Nein**
+Reines Verdrahtungs-Feature im Deploy-Pfad — keine DB-Objekte, keine lesende Sicht. Die „aktuell
+ausgerollte Version" ist (wie in di2f-0006) der neueste Eintrag in `config.db_version` und ohne View
+abfragbar. → Nach `/backend` (hier: Runner/Workflow-Änderungen) ist **kein** `/frontend` nötig.
+
+### A) Objekt-Landschaft (keine neuen DB-Objekte)
+Dieses Feature führt **keine** Tabelle/Prozedur/Funktion/View ein. Es **erweitert** drei bestehende
+Tooling-Bausteine und **nutzt** die di2f-0006-Bausteine:
+```
+- db/scripts/deploy.sh            — ruft am Ende eines erfolgreichen all-Deploys die Insert-Prozedur
+                                     (genutzt, nicht geändert: config.sp_ins_db_version aus di2f-0006)
+- .github/workflows/db-deploy.yml — stellt sicher, dass Git-Tags auf dem Deploy-Host verfügbar sind
+- db/config/<env>.env             — liefert die Versionsteile (APP_VERSION_*, bereits vorhanden)
+- config.db_version (di2f-0006)   — Zieltabelle: erhält je all-Deploy eine neue Historienzeile
+```
+
+### B) Datenmodell (Klartext)
+**Unverändert.** Es entsteht kein neues Modell; es werden nur **Zeilen** in die bestehende
+`config.db_version` geschrieben (append-only). Jede Zeile beschreibt — wie in di2f-0006 — einen
+**vollständig ausgerollten** Stand: Version (major/minor/build → generierte `release_version`),
+Git-Commit, optionaler Git-Tag, Umgebung, Zeitpunkt.
+
+### C) Schnittstelle (Zweck, kein Code)
+Es kommt **keine** neue Schnittstelle hinzu. Genutzt wird die bestehende Prozedur aus di2f-0006:
+```
+config.sp_ins_db_version( id[out], major, minor, build, git_commit, git_tag, environment )
+   — der Deploy-Runner sammelt diese Werte und ruft die Prozedur EINMAL am Ende eines
+     erfolgreichen all-Deploys auf; die Prozedur validiert und legt eine Historienzeile an.
+```
+Die „Schnittstelle" dieses Features ist also ein **neuer, finaler Schritt im Runner**, der die schon
+vorhandenen Werte einsammelt und durchreicht — nicht ein neues DB-Objekt.
+
+### D) Datenfluss & Protokollierung
+1. **Versionsteile** kommen aus `db/config/<env>.env` (`APP_VERSION_MAJOR/MINOR/BUILD`) — `deploy.sh`
+   liest sie ohnehin schon ein.
+2. **Commit-SHA** kennt `deploy.sh` bereits (`GIT_SHA` = der ausgecheckte/deployte Stand).
+3. **Git-Tag** wird aus dem deployten Commit ermittelt (der Release-Tag, falls der Commit getaggt
+   ist; sonst „kein Tag" → NULL). Symmetrisch zur bestehenden `GIT_SHA`-Ermittlung im Runner.
+4. **Umgebung** ist das `ENV`-Argument des Deploys (`dev`/`int`/`test`/`prod`).
+5. **Reihenfolge & Guard:** Erst werden — wie bisher — alle Schemas ausgerollt. **Nur** wenn das
+   vollständig erfolgreich war **und** `schema=all` **und** `env ≠ local` ist, macht der Runner
+   **einen** abschließenden Aufruf von `config.sp_ins_db_version(…)` → genau eine neue Zeile.
+6. **Abfrage:** Der neueste Eintrag je `environment` (höchste `id` / jüngstes `deployed_on`) = die
+   aktuell dort laufende Version.
+
+**Protokollierung** bleibt — wie in di2f-0006 — bewusst minimal: keine Execution/Component/Trace-Kette,
+kein `log.error`. Schlägt der Schreibschritt fehl, bricht der Deploy **hart** ab (der Fehler des
+finalen Aufrufs propagiert → Skript-Exit ≠ 0 → Workflow rot); es bleibt keine Teil-Zeile.
+
+### E) Tech-Entscheidungen (für PM begründet)
+1. **Aufruf im Runner am Ende — nicht als Data-Skript** (`config/data/…`).
+   *Warum:* Nur so lässt sich „**nur** bei `all`", „**nach** allen Schemas erfolgreich" und „**nicht**
+   bei `local`" sauber steuern. Ein Data-Skript liefe als Teil **jedes** (auch Einzelschema-)Deploys
+   mitten im Ablauf und käme nicht an den Git-Tag — es könnte die Akzeptanzkriterien 4/5/7 nicht
+   erfüllen. *(Löst die in di2f-0006 offen gelassene „Data-Skript o. Ä."-Frage.)*
+2. **Schreiben nur für `all`-Deploys** (nicht je Einzelschema).
+   *Warum:* Eine `db_version`-Zeile steht für den **Gesamtstand** der DB. Teil-Deploys (nur `config`,
+   nur `log`, …) sind kein eigener „DB-Versionsstand" und würden die Historie verrauschen (AK4).
+3. **`local` schreibt nicht.**
+   *Warum:* `config.db_version.environment` lässt per CHECK nur `dev/int/test/prod` zu. Würde der
+   lokale Deploy schreiben, bräche der CHECK den (sonst erfolgreichen) lokalen Lauf grundlos (AK5).
+4. **Schreibfehler = harter Deploy-Abbruch** (statt stiller Warnung).
+   *Warum:* Die Deploy-Historie soll lückenlos und verlässlich sein — ein „grüner" Deploy ohne
+   Versionszeile wäre irreführend. Der finale Aufruf läuft mit Stop-on-Error; sein Fehler macht den
+   Workflow rot (AK6).
+5. **Git-Tag im Runner ermitteln; der Workflow stellt nur die Tags bereit.**
+   *Warum:* `deploy.sh` ermittelt den Commit bereits selbst — den Tag dort daneben zu ermitteln hält
+   die Logik an **einer** Stelle und funktioniert auch bei manuellen lokalen Läufen. Der
+   GitHub-Workflow muss dafür lediglich sicherstellen, dass die **Tags** auf den Deploy-Host gelangen
+   (der heutige Branch-Fetch holt keine Tags) — sonst bliebe `git_tag` selbst bei getaggten
+   Prod-Releases fälschlich leer.
+6. **Werte kommen aus dem Deploy selbst — nichts wird von Hand übergeben.**
+   *Warum:* Version (`<env>.env`), Commit/Tag/Umgebung (Runner-Kontext) sind beim Deploy ohnehin
+   bekannt; das ist die Kern-User-Story „konsistent ohne manuelles SQL".
+
+### F) Abhängigkeiten
+- **Requires:** di2f-0006 (Tabelle + Prozedur — werden genutzt, nicht geändert), di2f-0003
+  (`deploy.sh`), di2f-0004 (`db-deploy.yml`).
+- **Verwandt:** di2f-0002 (Branch→Umgebung; `dev`-Branch → dev/int, `main` → test/prod — prägt, welche
+  Stände getaggt sind: Prod-Releases tragen `v1.X.0`, dev/int meist untagged → `git_tag` NULL).
+- **Keine** neuen DB-Objekte, **keine** Extensions, **kein** `etl`-Dynamic-SQL, **keine** RLS.
+
+### Hinweis für `/backend`
+Die Umsetzung ist **kein** DB-`/backend`, sondern **Skript-/Workflow-Arbeit**: Erweiterung von
+`db/scripts/deploy.sh` (finaler, geguardeter Prozedur-Aufruf inkl. Tag-Ermittlung) und
+`.github/workflows/db-deploy.yml` (Tags auf den Host fetchen). Tests laufen über die CI
+(`deploy.sh all local` zeigt, dass `local` **nicht** schreibt) und einen Deploy in eine
+Nicht-`local`-Umgebung (eine Zeile entsteht).
