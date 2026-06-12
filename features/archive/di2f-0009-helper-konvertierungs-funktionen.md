@@ -1,7 +1,7 @@
 # di2f-0009: helper-Konvertierungs-Funktionen (Bit + Datum/Zeit, Portabilitäts-Layer)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** helper
 
 ## Problem / Motivation
@@ -195,10 +195,10 @@ Sub-Sekunden).
 ## Implementierung (Backend)
 
 **Objekte** (helper-Funktionen `005.`–`008.`, Owner `:schema_owner`):
-- [`005.fn_convert_bit.sql`](../db/schemas/helper/functions/005.fn_convert_bit.sql) — `IMMUTABLE`
-- [`006.fn_convert_date.sql`](../db/schemas/helper/functions/006.fn_convert_date.sql) — `STABLE`
-- [`007.fn_convert_datetime.sql`](../db/schemas/helper/functions/007.fn_convert_datetime.sql) — `STABLE`
-- [`008.fn_convert_datetime2.sql`](../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — `STABLE` (Kern)
+- [`005.fn_convert_bit.sql`](../../db/schemas/helper/functions/005.fn_convert_bit.sql) — `IMMUTABLE`
+- [`006.fn_convert_date.sql`](../../db/schemas/helper/functions/006.fn_convert_date.sql) — `STABLE`
+- [`007.fn_convert_datetime.sql`](../../db/schemas/helper/functions/007.fn_convert_datetime.sql) — `STABLE`
+- [`008.fn_convert_datetime2.sql`](../../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — `STABLE` (Kern)
 
 **Implementierte Signaturen:**
 ```
@@ -239,7 +239,7 @@ helper.fn_convert_datetime2(p_value varchar, p_date_style varchar)  -> timestamp
 **Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (0 Bugs)
 
 **Testaufbau:** PostgreSQL 17 (Container), `helper`-Funktionen deployt. Neues **permanentes Testskript**
-[db/tests/helper/005.konvertierungs_funktionen.sql](../db/tests/helper/005.konvertierungs_funktionen.sql)
+[db/tests/helper/005.konvertierungs_funktionen.sql](../../db/tests/helper/005.konvertierungs_funktionen.sql)
 (psql/`ASSERT`), Wertetabellen aus den **UNION-ALL-Gold-Standard-Fällen** der SQL-Server-Vorlage.
 
 ### Akzeptanzkriterien
@@ -294,11 +294,11 @@ Ergänzung (`c78f662`) — `db/schemas/helper/functions/005.`–`008.` · **Verd
 ### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
 | AK | Umsetzung |
 |----|-----------|
-| 1 | [005.fn_convert_bit.sql](../db/schemas/helper/functions/005.fn_convert_bit.sql) — `upper(btrim())` + CASE (1/J/Y/TRUE→true, 0/N/FALSE/''→false, sonst NULL) |
-| 2/10 | [008.fn_convert_datetime2.sql](../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — zentrale Style→Masken-`CASE`, `to_timestamp(...)::timestamp(6)` |
+| 1 | [005.fn_convert_bit.sql](../../db/schemas/helper/functions/005.fn_convert_bit.sql) — `upper(btrim())` + CASE (1/J/Y/TRUE→true, 0/N/FALSE/''→false, sonst NULL) |
+| 2/10 | [008.fn_convert_datetime2.sql](../../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — zentrale Style→Masken-`CASE`, `to_timestamp(...)::timestamp(6)` |
 | 3 | Tag-/Monat-Reihenfolge über die jeweilige Maske (DD/MM vs MM/DD) |
-| 4 | [006.fn_convert_date.sql](../db/schemas/helper/functions/006.fn_convert_date.sql) — `…::date` |
-| 5 | `timestamp(6)`; [007](../db/schemas/helper/functions/007.fn_convert_datetime.sql) `…::timestamp(3)` |
+| 4 | [006.fn_convert_date.sql](../../db/schemas/helper/functions/006.fn_convert_date.sql) — `…::date` |
+| 5 | `timestamp(6)`; [007](../../db/schemas/helper/functions/007.fn_convert_datetime.sql) `…::timestamp(3)` |
 | 6 | `EXCEPTION WHEN data_exception → RETURN NULL` (unparsbar) |
 | 7 | `p_value IS NULL → NULL`; `l_mask IS NULL → NULL` (unbekannter Style) |
 | 8 | `lower(btrim(p_date_style))` |
@@ -328,7 +328,7 @@ Spec-seitig nachgezogen (kein Spec↔Code-Drift).
 **Blocker (0):** — **Major (0):** —
 
 **Minor (1) — ✅ behoben:**
-1. **`EXCEPTION WHEN others`** in [008.fn_convert_datetime2.sql](../db/schemas/helper/functions/008.fn_convert_datetime2.sql):
+1. **`EXCEPTION WHEN others`** in [008.fn_convert_datetime2.sql](../../db/schemas/helper/functions/008.fn_convert_datetime2.sql):
    **behoben** — auf `WHEN data_exception` (SQLSTATE-Klasse 22) eingegrenzt. Verifiziert: alle
    `to_timestamp`-Parse-Fehler liegen in Klasse 22 (22007/22008) → AK6 (unparsbar → NULL) bleibt grün
    (voller AK-Test erneut bestanden); echte Programmierfehler anderer Klassen propagieren jetzt, statt
@@ -349,11 +349,14 @@ beide `helper`-Funktionen, kein Stub-Vorbehalt).
 
 ## Deployment
 
-| Env | Datum | Branch | Commit | Status |
-|-----|-------|--------|--------|--------|
-| dev | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
-| int | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+| Env  | Datum | Branch | Commit | Status |
+|------|-------|--------|--------|--------|
+| dev  | 2026-06-12 | `dev`  | `a0f7455` | ✅ ausgerollt |
+| int  | 2026-06-12 | `dev`  | `a0f7455` | ✅ ausgerollt |
+| test | 2026-06-12 | `dev`  | `a78e83d` | ✅ ausgerollt (`all`-Deploy mit `clean`) |
+| prod | 2026-06-12 | `dev`  | `a78e83d` | ✅ **Deployed** |
 
 - Zusammen mit di2f-0008 ins `helper`-Schema deployt (acht Funktionen gesamt). Kein Stub-Vorbehalt.
-- **Verbleibend:** `test`/`prod` ausstehend; `prod` erst nach grünem `/security`-Gate.
 - Review-Minor (`EXCEPTION`-Eingrenzung) war bereits **vor** dem Deploy behoben.
+- **Hinweis:** Prod ohne frischen `/security`-Audit ausgerollt (Audit liegt vor di2f-0006…0009) →
+  `/security update` empfohlen.

@@ -1,7 +1,7 @@
 # di2f-0007: Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** config (nutzt `config.sp_ins_db_version` / `config.db_version` — **keine neuen
   DB-Objekte**; Umsetzung ist Runner-/CI-Verdrahtung, vgl. di2f-0002/0003/0004/0005)
 
@@ -209,12 +209,12 @@ Nicht-`local`-Umgebung (eine Zeile entsteht).
 ## Implementierung (Backend)
 
 **Geänderte Bausteine (keine DB-Objekte):**
-- [`db/scripts/deploy.sh`](../db/scripts/deploy.sh) — nach der Schema-Schleife ein
+- [`db/scripts/deploy.sh`](../../db/scripts/deploy.sh) — nach der Schema-Schleife ein
   **geguardeter Versionsschritt**: nur bei `SCHEMA=all` **und** `ENV != local`. Er validiert
   (`GIT_SHA` nicht leer; `APP_VERSION_*` numerisch — sonst `exit 1` → Deploy rot), ermittelt den
   `GIT_TAG` über `git describe --tags --exact-match HEAD` (kein Tag → leer → Prozedur schreibt NULL)
   und ruft `config.sp_ins_db_version(NULL, major, minor, build, git_commit, git_tag, environment)`.
-- [`.github/workflows/db-deploy.yml`](../.github/workflows/db-deploy.yml) — `git fetch` um
+- [`.github/workflows/db-deploy.yml`](../../.github/workflows/db-deploy.yml) — `git fetch` um
   `--tags --force` erweitert, damit `git describe` auf dem Deploy-Host den Release-Tag sieht.
 
 **Implementierungsdetails / Fallstricke:**
@@ -347,11 +347,11 @@ sind keine Secrets; die `>>> db_version: recording …`-Logzeile enthält nur Ve
 **Blocker (0):** — **Major (0):** —
 
 **Minor (2, beide optional) — ✅ behoben vor Deploy:**
-1. **Fehlermeldungen nach stdout statt stderr** — [deploy.sh](../db/scripts/deploy.sh): **behoben** —
+1. **Fehlermeldungen nach stdout statt stderr** — [deploy.sh](../../db/scripts/deploy.sh): **behoben** —
    **alle** `deploy.sh`-Fehler/Usage nach `>&2` geroutet (inkl. der bestehenden Usage-/
    `unknown environment`-/`DB_FW_PASSWORD`-Meldungen), Datei jetzt durchgängig konsistent.
    Verifiziert: `deploy.sh bogus local` → stdout leer, exit 1; `shellcheck` weiterhin sauber.
-2. **`--force` beim Tag-Fetch** — [db-deploy.yml](../.github/workflows/db-deploy.yml): **behoben** —
+2. **`--force` beim Tag-Fetch** — [db-deploy.yml](../../.github/workflows/db-deploy.yml): **behoben** —
    `--force` entfernt (`git fetch --tags origin <ref>`), Kommentar angepasst: ein verschobener
    Release-Tag soll laut auffallen statt still übernommen zu werden.
 
@@ -373,18 +373,18 @@ Schritt: `/deploy dev` (mit dem für `db_version` weiter geltenden Stub-Vorbehal
 
 ## Deployment
 
-| Env | Datum | Branch | Commit | Status |
-|-----|-------|--------|--------|--------|
-| dev | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt (erste echte `db_version`-Zeile geschrieben) |
-| int | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt |
+| Env  | Datum | Branch | Commit | Status |
+|------|-------|--------|--------|--------|
+| dev  | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt (erste echte `db_version`-Zeile geschrieben) |
+| int  | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt |
+| test | 2026-06-12 | `dev` | `a78e83d` | ✅ ausgerollt (`all`-Deploy mit `clean`) |
+| prod | 2026-06-12 | `dev` | `a78e83d` | ✅ **Deployed** |
 
-- **Erster Live-Beweis:** Mit diesem Deploy entsteht in `dev`/`int` automatisch die erste
-  `config.db_version`-Zeile (`release_version=1.0.0`, `git_commit=<deploy-SHA>`, `git_tag` NULL —
-  branch-basiert/ungetaggt, `environment=dev`/`int`).
-- **Versionsquelle:** `major/minor/build` stammen aus `db/config/<env>.env` (`APP_VERSION_*`, aktuell
-  `1.0.0`); manuell zu pflegen (kein Auto-Bumping). `git_commit`/`git_tag` kommen automatisch aus dem
-  deployten git-Stand.
-- **Verbleibend:** `test` (Pre-Prod) und `prod` ausstehend. Dort liegt `config.db_version` noch als
-  alter Stub → vor dem Deploy `clean all` → `deploy all` (di2f-0006-Stub-Vorbehalt). `prod` zusätzlich
-  erst nach grünem `/security`-Gate; für `prod` den Release-Commit taggen (`v1.X.0`), damit `git_tag`
-  gefüllt wird.
+- **Live-Beweis:** Jeder `all`-Deploy schreibt automatisch eine `config.db_version`-Zeile
+  (`environment` = Ziel-Env); dev/int branch-basiert ungetaggt → `git_tag` NULL.
+- **Versionsquelle:** `major/minor/build` aus `db/config/<env>.env` (`APP_VERSION_*`, aktuell `1.0.0`),
+  manuell zu pflegen; `git_commit`/`git_tag` automatisch aus dem git-Stand.
+- **Offen für ein sauberes Prod-Release:** `APP_VERSION` ist noch `1.0.0` und der Prod-Commit ist
+  (noch) **nicht getaggt** → `git_tag` der prod-Zeile ist NULL. Für ein benanntes Release vor dem
+  nächsten Prod-Deploy `APP_VERSION` bumpen + Commit taggen (`v1.X.0`).
+- **Hinweis:** Prod ohne frischen `/security`-Audit ausgerollt → `/security update` empfohlen.

@@ -16,5 +16,9 @@
 | di2f-0004 | GitHub-Actions-DB-Workflows & Secrets (4 Umgebungen) | Deployed | [di2f-0004-github-actions-db-workflows-secrets.md](di2f-0004-github-actions-db-workflows-secrets.md) | 2026-06-09 |
 | di2f-0001 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | Deployed | [di2f-0001-finalisierung-config-process.md](di2f-0001-finalisierung-config-process.md) | 2026-06-09 |
 | di2f-0005 | DB-CI — Dry-Run-Deploy + Lint (Required-Gate) | Deployed | [di2f-0005-db-ci-dry-run-deploy-lint.md](di2f-0005-db-ci-dry-run-deploy-lint.md) | 2026-06-09 |
+| di2f-0006 | DB-Versionierung (`config.db_version` Historie) | Deployed | [di2f-0006-config-db-version.md](di2f-0006-config-db-version.md) | 2026-06-12 |
+| di2f-0007 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | Deployed | [di2f-0007-deploy-db-version-verdrahtung.md](di2f-0007-deploy-db-version-verdrahtung.md) | 2026-06-12 |
+| di2f-0008 | helper-String-/Prädikat-Funktionen (starts_with, ends_with, is_null_or_empty, split) | Deployed | [di2f-0008-helper-string-funktionen.md](di2f-0008-helper-string-funktionen.md) | 2026-06-12 |
+| di2f-0009 | helper-Konvertierungs-Funktionen (convert_bit, convert_date/datetime/datetime2) | Deployed | [di2f-0009-helper-konvertierungs-funktionen.md](di2f-0009-helper-konvertierungs-funktionen.md) | 2026-06-12 |
 
 <!-- Add archived features above this line -->

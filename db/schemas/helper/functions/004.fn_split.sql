@@ -8,7 +8,7 @@ DROP FUNCTION IF EXISTS :schema_helper.fn_split(varchar, varchar);
 --    p_value       varchar
 --       Zu zerlegender Wert
 --    p_separator   varchar
---       Trennzeichen (ein Zeichen)
+--       Trenn-String (ein oder mehr Zeichen)
 -- --------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION :schema_helper.fn_split
 (
@@ -50,6 +50,7 @@ ALTER FUNCTION :schema_helper.fn_split(varchar, varchar) OWNER TO :schema_owner;
 --    die Elemente als Zeilenmenge (Spalte 'value'). NULL/leerer Wert -> 0 Zeilen;
 --    NULL/leeres Trennzeichen -> ganzer Wert als eine Zeile. Innere und abschliessende
 --    Leer-Elemente bleiben erhalten ('A,,C' -> A,'',C ; 'A,B,C,' -> A,B,C,'').
+--    p_separator darf ein oder mehr Zeichen haben (string_to_table, z. B. '::').
 --    Reine Berechnung (IMMUTABLE).
 -- --------------------------------------------------------------------------------
 
