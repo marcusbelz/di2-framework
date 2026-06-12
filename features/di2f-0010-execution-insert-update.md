@@ -325,3 +325,22 @@ Sektions-Reihenfolge (procedures nach tables/functions) löst Dependencies; idem
 `end_on`-Semantik spec-konform, optionaler `CHECK`-Constraint + Perf-Index als `/security`-/
 Follow-up-Kandidaten). di2f-0010-Code ist korrekt, `/qa`-READY, idempotent, least-privilege
 verifiziert. Nächster Schritt: `/deploy dev`.
+
+---
+
+## Deployment
+
+| Env | Datum | Commit | Workflow | Ergebnis |
+|-----|-------|--------|----------|----------|
+| dev | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün |
+| int | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=int, Branch dev) | ✅ grün |
+
+- **Push-Voraussetzung:** Die di2f-0010-Commits (`99e5daf`/`2650ab2`/`9ecb0ff`) lagen zunächst nur
+  lokal; ein erster dev/int-Deploy-Anlauf lief noch gegen `origin/dev = f1c5240` (**ohne**
+  di2f-0010). Nach `git push origin dev` (`f1c5240..9ecb0ff`) wurden „DB - deploy" für **dev** und
+  **int** erneut angestoßen — beide grün, jetzt inkl. der `log.execution`-Prozeduren.
+- **Idempotenz:** Re-Deploy spielt die Prozeduren via `DROP … IF EXISTS` + `CREATE OR REPLACE` ein
+  (lokal in QA 2× rc=0 verifiziert).
+- **Nächste Stufen:** `/deploy test` (Branch `dev`) optional als Pre-Prod-Abnahme; **vor**
+  `/deploy prod` ist `/security` Pflicht (bewertet u. a. den `CHECK`-Constraint-Kandidaten + die
+  Cross-Schema-Grants im realen Bootstrap).
