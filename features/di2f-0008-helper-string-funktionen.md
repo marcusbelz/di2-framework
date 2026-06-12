@@ -177,3 +177,39 @@ Vier `CREATE OR REPLACE FUNCTION`-Skripte unter `db/schemas/helper/functions/` (
 `IMMUTABLE`, `OWNER TO :schema_owner`. Reine Validator-Functions ohne Fehler-`RAISE` (Skelett-Variante
 aus `functions.md` ohne `Get name`-Block). Smoke-Test gegen die Akzeptanzkriterien-Wertetabellen
 (direkt aus den Vorlage-Testfällen).
+
+---
+
+## Implementierung (Backend)
+
+**Objekte** (erste Objekte im `helper`-Schema, alle `IMMUTABLE`, Owner `:schema_owner`):
+- [`001.fn_is_null_or_empty.sql`](../db/schemas/helper/functions/001.fn_is_null_or_empty.sql)
+- [`002.fn_starts_with.sql`](../db/schemas/helper/functions/002.fn_starts_with.sql)
+- [`003.fn_ends_with.sql`](../db/schemas/helper/functions/003.fn_ends_with.sql)
+- [`004.fn_split.sql`](../db/schemas/helper/functions/004.fn_split.sql)
+
+**Implementierte Signaturen:**
+```
+helper.fn_is_null_or_empty(p_input varchar, p_trim boolean)                  -> boolean
+helper.fn_starts_with     (p_input varchar, p_pattern varchar, p_trim boolean) -> boolean
+helper.fn_ends_with       (p_input varchar, p_pattern varchar, p_trim boolean) -> boolean
+helper.fn_split           (p_value varchar, p_separator varchar)              -> TABLE (value varchar)
+```
+
+**Umsetzung / Details:**
+- `fn_starts_with` nutzt das PG-Bordmittel `starts_with()` (literal, case-sensitiv). `fn_ends_with`
+  hat kein Bordmittel → literaler Suffix-Vergleich via `right(wert, char_length(muster)) = muster`.
+- `fn_is_null_or_empty`: NULL → true; `p_trim` → `btrim()` vor `char_length(...) = 0`.
+- `fn_split` (`RETURNS TABLE(value varchar)`): NULL/leerer Wert → 0 Zeilen; NULL/leeres Trennzeichen →
+  eine Zeile = ganzer Wert (fängt PGs NULL-Delimiter-Verhalten ab); sonst `string_to_table()` (innere
+  **und** abschliessende Leer-Elemente bleiben erhalten).
+- Kein `EXCEPTION`-Block: die Funktionen haben keinen Fehlerpfad (reine, null-sichere Logik).
+- `p_trim` als `boolean`; `NULL`-`p_trim` wird wie „nicht trimmen" behandelt.
+
+**Smoke-Test (PostgreSQL 17, Container, gegen `helper` in `di2f`):**
+- Alle Akzeptanzkriterien AK1–AK9 als `ASSERT`-Block grün (Wertetabellen direkt aus den
+  Vorlage-Testfällen), inkl. Design-Fälle: abschliessendes Trennzeichen → leeres Schluss-Element;
+  NULL/leeres Trennzeichen → ganzer Wert. ✅
+- Unicode/Umlaute zeichen-basiert korrekt (`fn_ends_with('grüße','ße')`=true). ✅
+- Volatilität `IMMUTABLE`, Owner `…_fw` (Catalog geprüft). ✅
+- Doppelter Deploy fehlerfrei (`CREATE OR REPLACE`). ✅
