@@ -99,3 +99,81 @@ Prädikate:
 - **Unabhängig von di2f-0009** (Konvertierungs-Helfer) — beide brauchen nur das `helper`-Schema; keine
   gegenseitige Abhängigkeit. Empfohlene Reihenfolge: 0008 (einfacher) vor 0009.
 - **Künftige Nutzer:** die noch zu bauende ETL-/Lade-Logik und Prüf-Prozeduren rufen diese Helfer.
+
+---
+
+## Tech Design (Solution Architect)
+
+### Views nötig: **Nein**
+Reine Berechnungsfunktionen ohne lesende Sicht. → Nach `/backend` **kein** `/frontend`.
+
+### A) Objekt-Landschaft (vier Funktionen, keine Tabellen)
+Erste Objekte im bislang leeren Schema `helper`. Keine Tabelle, kein Trigger, keine View, kein
+`etl`-Dynamic-SQL.
+```
+- helper.fn_is_null_or_empty(p_input, p_trim)          — true, wenn Wert NULL oder leer (optional getrimmt)
+- helper.fn_starts_with(p_input, p_pattern, p_trim)    — true, wenn Wert mit Muster BEGINNT (literal, case-sensitiv)
+- helper.fn_ends_with(p_input, p_pattern, p_trim)      — true, wenn Wert mit Muster ENDET   (literal, case-sensitiv)
+- helper.fn_split(p_value, p_separator)                — zerlegt Wert am Trennzeichen in eine Zeilenmenge
+```
+
+### B) Datenmodell (Klartext)
+**Keines.** Es wird nichts gespeichert. Alle vier Funktionen berechnen ihr Ergebnis allein aus den
+Eingabeparametern (zustandslos). `fn_split` **liefert** eine Ergebnismenge (eine Spalte je Element),
+**schreibt** aber nichts.
+
+### C) Schnittstellen (Zweck, kein Code)
+```
+- helper.fn_is_null_or_empty(p_input, p_trim)        -> boolean   (true = NULL oder leer)
+- helper.fn_starts_with(p_input, p_pattern, p_trim)  -> boolean   (true = beginnt mit Muster)
+- helper.fn_ends_with(p_input, p_pattern, p_trim)    -> boolean   (true = endet mit Muster)
+- helper.fn_split(p_value, p_separator)              -> Menge aus Textwerten (eine Spalte 'value')
+```
+- Texteingaben als `varchar` (Framework-Konvention; nicht `text`). `p_trim` als `boolean`.
+  `p_separator` ist **ein** Zeichen.
+- `p_input`/`p_pattern` zuerst der zu prüfende Wert, dann das Muster, dann der `p_trim`-Schalter —
+  entspricht der Lesart „prüfe Wert gegen Muster".
+
+### D) Datenfluss & Protokollierung
+- **Kein** Datenfluss durch die Log-Kette. Die Funktionen sind Bausteine, die **andere** Komponenten
+  (künftige ETL-/Lade-/Prüf-Logik) in ihren Ausdrücken aufrufen.
+- **Keine** Protokollierung, **keine** Exceptions im Normalbetrieb: Grenzfälle liefern definierte
+  Ergebnisse (false / 0 Zeilen), damit ein aufrufender Lade-Lauf nie an einem Helfer abbricht.
+
+### E) Tech-Entscheidungen (für PM begründet)
+1. **Dünne Wrapper um PostgreSQL-Bordmittel statt Neu-Erfindung.** Wo PostgreSQL ein passendes
+   Bordmittel hat (Präfix-/Suffix-Vergleich, Trennen), nutzt die Funktion es **intern** — der Wert
+   liegt im **stabilen, benannten Aufruf** (`helper.fn_*`), nicht im Algorithmus. *Warum:* korrekt &
+   schnell, und genau diese benannte Naht macht die spätere Portierung billig (nur der Layer wird im
+   Zielsystem neu gebaut).
+2. **`boolean`-Rückgabe** (laut Spec) statt 0/1. *Warum:* direkt in `WHERE`/`IF` nutzbar, PG-idiomatisch.
+3. **Literaler Vergleich** in `starts_with`/`ends_with` (Muster ist ein **gewöhnlicher String**, kein
+   Wildcard/Regex). *Warum:* behebt die latente LIKE-Pattern-Eigenheit der SQL-Server-Vorlage; ein
+   Muster mit `%`/`_` wird buchstäblich verglichen — vorhersagbar.
+4. **Case-sensitiv** (wie die Vorlage). *Warum:* Konsistenz mit dem Original; eine case-insensitive
+   Variante kann später als eigene Funktion folgen, statt hier ein Verhalten zu überladen.
+5. **`fn_split`: abschließendes Trennzeichen erzeugt ein leeres Schluss-Element** (`'A,B,C,'` →
+   `A`,`B`,`C`,``). *Warum:* entspricht der Standard-Split-Semantik (vorhersagbar, verlustfrei); die
+   Vorlage verwarf es — die hier gewählte Regel ist die allgemeingültigere. Innere Leer-Elemente
+   bleiben ebenfalls erhalten (`'A,,C'` → `A`,``,`C`).
+6. **Null-sicher, ohne Überraschungen:** `NULL`/leerer `p_value` → **0 Zeilen**; `NULL`/leeres
+   `p_separator` → **eine Zeile = der gesamte Wert** (kein Split). *Warum:* PostgreSQL würde bei einem
+   `NULL`-Trennzeichen den String in **Einzelzeichen** zerlegen — diese Überraschung wird bewusst
+   abgefangen.
+7. **Volatilität `IMMUTABLE`** (reine Berechnung, kein DB-Zugriff). *Warum:* erlaubt dem Planer
+   Inlining/Konstanten-Faltung und Nutzung in Index-Ausdrücken.
+8. **Datei-Nummerierung sequenziell im `helper`-Schema** (`001.`…`004.`), da es **keine Tabelle** zum
+   Anker gibt — die sql.md-Regel „Nummer der Haupttabelle" greift im tabellenlosen `helper` nicht.
+   di2f-0009 setzt die Nummerierung fort (`005.`…). *(Kleiner Konventions-Zusatz — Vorschlag, das als
+   Ein-Zeiler in `functions.md`/`sql.md` nachzuziehen; nicht Teil dieses Deploys.)*
+
+### F) Abhängigkeiten
+- **Requires:** Schema `helper` + Owner (`db/database/`) — vorhanden. Owner `:schema_owner`; aufrufbar
+  durch die Laufzeitrolle (`:role_rw`).
+- **Unabhängig von di2f-0009**; **keine** Extensions, **kein** `etl`, **keine** RLS/Tabellen.
+
+### Hinweis für `/backend`
+Vier `CREATE OR REPLACE FUNCTION`-Skripte unter `db/schemas/helper/functions/` (`001.`…`004.`),
+`IMMUTABLE`, `OWNER TO :schema_owner`. Reine Validator-Functions ohne Fehler-`RAISE` (Skelett-Variante
+aus `functions.md` ohne `Get name`-Block). Smoke-Test gegen die Akzeptanzkriterien-Wertetabellen
+(direkt aus den Vorlage-Testfällen).
