@@ -19,6 +19,8 @@
 |----|---------|--------|------|----------|
 | di2f-0006 | DB-Versionierung (`config.db_version` Historie) | In Review | [di2f-0006-config-db-version.md](di2f-0006-config-db-version.md) | 2026-06-12 |
 | di2f-0007 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | In Review | [di2f-0007-deploy-db-version-verdrahtung.md](di2f-0007-deploy-db-version-verdrahtung.md) | 2026-06-12 |
+| di2f-0008 | helper-String-/Prädikat-Funktionen (starts_with, ends_with, is_null_or_empty, split) | Geplant | [di2f-0008-helper-string-funktionen.md](di2f-0008-helper-string-funktionen.md) | 2026-06-12 |
+| di2f-0009 | helper-Konvertierungs-Funktionen (convert_bit, convert_date/datetime/datetime2) | Geplant | [di2f-0009-helper-konvertierungs-funktionen.md](di2f-0009-helper-konvertierungs-funktionen.md) | 2026-06-12 |
 
 <!-- Add features above this line -->
 
@@ -29,4 +31,4 @@ Abgeschlossene, live deployte Features stehen unter [archive/](archive/) und sin
 wandert seine Spec via `git mv` nach `features/archive/` und die Zeile aus der Tabelle oben
 in die Archiv-Tabelle.
 
-## Nächste freie ID: di2f-0008
+## Nächste freie ID: di2f-0010

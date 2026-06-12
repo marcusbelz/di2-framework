@@ -29,7 +29,8 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P0 (MVP) | Schema `config` — `Configuration`-Tabelle + Lese-/Schreibfunktionen | Geplant | — |
 | P0 (MVP) | Deploy-/Teardown-Skripte (`db/scripts/`, Bash/Linux) | Deployed | [di2f-0003](../features/archive/di2f-0003-bash-runner-deploy-teardown.md) |
 | P1 | Schema `etl` — generische Dynamic-SQL-Prozeduren | Geplant | — |
-| P1 | Schema `helper` — Konvertierungsfunktionen (`fnConvert*`) | Geplant | — |
+| P1 | Schema `helper` — String-/Prädikat-Funktionen (starts_with, ends_with, is_null_or_empty, split) | Geplant | [di2f-0008](../features/di2f-0008-helper-string-funktionen.md) |
+| P1 | Schema `helper` — Konvertierungsfunktionen (convert_bit, convert_date/datetime/datetime2) | Geplant | [di2f-0009](../features/di2f-0009-helper-konvertierungs-funktionen.md) |
 | P1 | Konfigurations-Stammdaten (`config/data/`) | Geplant | — |
 | P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
 | P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
