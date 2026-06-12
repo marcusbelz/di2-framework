@@ -368,3 +368,23 @@ sind keine Secrets; die `>>> db_version: recording …`-Logzeile enthält nur Ve
 grün. Die zwei Minors sind optionale Nits (einer davon ein pre-existing Projekt-Stil). Nächster
 Schritt: `/deploy dev` (mit dem für `db_version` weiter geltenden Stub-Vorbehalt: `clean all` →
 `deploy all`).
+
+---
+
+## Deployment
+
+| Env | Datum | Branch | Commit | Status |
+|-----|-------|--------|--------|--------|
+| dev | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt (erste echte `db_version`-Zeile geschrieben) |
+| int | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt |
+
+- **Erster Live-Beweis:** Mit diesem Deploy entsteht in `dev`/`int` automatisch die erste
+  `config.db_version`-Zeile (`release_version=1.0.0`, `git_commit=<deploy-SHA>`, `git_tag` NULL —
+  branch-basiert/ungetaggt, `environment=dev`/`int`).
+- **Versionsquelle:** `major/minor/build` stammen aus `db/config/<env>.env` (`APP_VERSION_*`, aktuell
+  `1.0.0`); manuell zu pflegen (kein Auto-Bumping). `git_commit`/`git_tag` kommen automatisch aus dem
+  deployten git-Stand.
+- **Verbleibend:** `test` (Pre-Prod) und `prod` ausstehend. Dort liegt `config.db_version` noch als
+  alter Stub → vor dem Deploy `clean all` → `deploy all` (di2f-0006-Stub-Vorbehalt). `prod` zusätzlich
+  erst nach grünem `/security`-Gate; für `prod` den Release-Commit taggen (`v1.X.0`), damit `git_tag`
+  gefüllt wird.
