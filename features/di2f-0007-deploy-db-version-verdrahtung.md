@@ -301,3 +301,70 @@ wurden ohne Pipe gemessen (Pipe maskiert sonst den Exit-Code).
 Der Write-Pfad lässt sich in der lokalen-only-CI (`deploy.sh all local` → schreibt bewusst nicht)
 nicht automatisiert abdecken; er wurde **manuell e2e** gegen eine gebootstrappte `int`-Umgebung
 verifiziert (Befehle oben dokumentiert). Die CI deckt weiterhin Idempotenz + `shellcheck` ab.
+
+---
+
+## Code Review
+
+**Reviewer:** `/review` · **Datum:** 2026-06-12 · **Range:** Backend-Commit `82fab90`
+(`db/scripts/deploy.sh`, `.github/workflows/db-deploy.yml`) · **Verdict:** ✅ **Approve**
+(0 Blocker, 0 Major, 2 Minor)
+
+### Spec ↔ Code (Akzeptanzkriterien im Diff lokalisiert)
+| AK | Umsetzung im Diff (`db/scripts/deploy.sh`) |
+|----|---------------------------------------------|
+| 1 | Versionsblock **nach** der Schema-Schleife; schreibt eine Zeile via `CALL config.sp_ins_db_version` |
+| 2 | `:major/:minor/:build` aus `APP_VERSION_*`, `:'sha'`=`GIT_SHA`, `:'env'`=`ENV` |
+| 3 | `GIT_TAG` via `git describe --tags --exact-match` → leer ⇒ Prozedur schreibt NULL; `db-deploy.yml`: `git fetch --tags` |
+| 4 | Guard `[ "$SCHEMA" = "all" ]` |
+| 5 | Guard `[ "$ENV" != "local" ]` |
+| 6 | leerer `GIT_SHA` / nicht-numerische `APP_VERSION_*` → `exit 1`; psql unter `ON_ERROR_STOP`+`set -e` |
+| 7 | Block steht **hinter** dem `done` der Schema-Schleife → `set -e` bricht bei Schema-Fehler vorher ab |
+| 8 | kein Skip-/UNIQUE-Pfad → jeder Lauf schreibt |
+
+Datei-Scope passt exakt zur Spec (`deploy.sh` + `db-deploy.yml`), keine Fremddateien, keine
+ungenannten Nebeneffekte; der bestehende Schema-Deploy-Pfad bleibt unverändert (rein additiv).
+
+### Conventions & Qualität
+- **Injection-sicher:** Textwerte über `:'sha'`/`:'tag'`/`:'env'` gequotet (= `%L`), Zahlen numerisch —
+  **keine** String-Konkatenation (sql.md-Regel für Dynamic SQL eingehalten, obwohl hier nur ein
+  statischer `CALL`). ✅
+- **stdin-Heredoc statt `-c`:** korrekt (nur so interpoliert psql `:var`) und im Kommentar begründet. ✅
+- **Schema-qualifiziert** (`config.sp_ins_db_version`), nichts in `public`, kein `SECURITY DEFINER`
+  (keine neue Funktion). ✅
+- **Fehlerbehandlung:** explizite, aussagekräftige Meldungen + `exit 1`; `GIT_TAG="$(… || echo '')"`
+  verhindert, dass ein fehlender Tag unter `set -e` den Deploy bricht. ✅
+- **Idempotenz/Determinismus:** Guards und Validierung deterministisch; Re-Run schreibt bewusst eine
+  weitere Zeile (AK8). `shellcheck --severity=warning` sauber. ✅
+- **Kommentar-Block** dokumentiert Guard, Werte, Fehlerpropagation und den `-c`-Fallstrick. ✅
+
+### Security am Diff
+Keine Secrets im Code (`DB_FW_PASSWORD` aus Env/GitHub-Secrets, nicht geloggt); `git_commit`/`git_tag`
+sind keine Secrets; die `>>> db_version: recording …`-Logzeile enthält nur Version/Commit/Tag/Env. ✅
+
+### Findings
+
+**Blocker (0):** — **Major (0):** —
+
+**Minor (2, beide optional) — ✅ behoben vor Deploy:**
+1. **Fehlermeldungen nach stdout statt stderr** — [deploy.sh](../db/scripts/deploy.sh): **behoben** —
+   **alle** `deploy.sh`-Fehler/Usage nach `>&2` geroutet (inkl. der bestehenden Usage-/
+   `unknown environment`-/`DB_FW_PASSWORD`-Meldungen), Datei jetzt durchgängig konsistent.
+   Verifiziert: `deploy.sh bogus local` → stdout leer, exit 1; `shellcheck` weiterhin sauber.
+2. **`--force` beim Tag-Fetch** — [db-deploy.yml](../.github/workflows/db-deploy.yml): **behoben** —
+   `--force` entfernt (`git fetch --tags origin <ref>`), Kommentar angepasst: ein verschobener
+   Release-Tag soll laut auffallen statt still übernommen zu werden.
+
+### Hinweise (kein Finding)
+- **ENV-Werte** werden in `deploy.sh` nicht explizit auf `{dev,int,test,prod}` eingeschränkt — aktuell
+  unkritisch: es existieren nur die fünf bekannten `*.env`-Dateien (sonst bricht `deploy.sh` bei der
+  Datei-Prüfung ab), `local` wird übersprungen, und ein sonstiger Wert würde am `environment`-CHECK
+  der Prozedur scheitern (Defense-in-Depth → Deploy rot, AK6).
+- **Permanente Tests:** Der Write-Pfad ist in der local-only-CI nicht abbildbar (dokumentiert in der
+  QA-Sektion); Abdeckung via manuellem e2e + CI-`shellcheck`/Idempotenz. Akzeptabel.
+
+### Empfehlung
+**Approve** — sauberer, rein additiver Diff; alle AKs im Code belegt; injection-sicher; `shellcheck`
+grün. Die zwei Minors sind optionale Nits (einer davon ein pre-existing Projekt-Stil). Nächster
+Schritt: `/deploy dev` (mit dem für `db_version` weiter geltenden Stub-Vorbehalt: `clean all` →
+`deploy all`).
