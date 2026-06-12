@@ -239,3 +239,65 @@ Nicht-`local`-Umgebung (eine Zeile entsteht).
 hat, gilt der dort dokumentierte Stub-Vorbehalt weiter (vor dem ersten Deploy einer Umgebung mit
 altem Stand: `clean all` → `deploy all`). di2f-0007 ändert daran nichts — es fügt nur den
 Versionsschritt hinzu.
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (keine Critical/High/Medium/Low-Bugs)
+
+**Testaufbau:** PostgreSQL 17 (Container `di2f_dev_postgres`). Für ein faithful e2e wurde eine echte
+**Nicht-`local`-Umgebung `int`** im Container via `create.sh int` gebootstrappt und nach dem Test mit
+`drop.sh int` rückstandslos entfernt. Da der Postgres-Container **kein git** enthält (auf dem echten
+Hetzner-Host löst git auf — siehe di2f-0006-Deploy-Log `git e78208f…`), wurde für die git-Ermittlung
+ein **temporärer git-Shim** (`rev-parse`/`describe`) gesetzt und danach entfernt. Echte Exit-Codes
+wurden ohne Pipe gemessen (Pipe maskiert sonst den Exit-Code).
+
+### Akzeptanzkriterien (gegen das echte `deploy.sh`)
+
+| AK | Inhalt | Ergebnis | Beleg |
+|----|--------|----------|-------|
+| 1 | erfolgreicher `all`-Deploy → genau eine Zeile | ✅ | `deploy.sh all int` → `REAL_EXIT=0`, +1 Zeile |
+| 2 | Werte korrekt (major/minor/build, commit, env, `release_version`, `deployed_on`) | ✅ | Zeile: `1/0/0`, `release_version=1.0.0`, `git_commit=<sha>`, `environment=int`, `deployed_on` gesetzt |
+| 3 | `git_tag` = Tag falls vorhanden, sonst NULL (untagged läuft durch) | ✅ | untagged → `git_tag` NULL; Shim-Tag `v9.9.9` → landet in `git_tag` |
+| 4 | Einzelschema-Deploy schreibt **keine** Zeile | ✅ | `deploy.sh config int` → Zeilen 3→3 |
+| 5 | `local`-Deploy schreibt **keine** Zeile | ✅ | `deploy.sh all local` → `di2f.db_version` bleibt 0 |
+| 6 | Schreibfehler → Deploy rot, keine Teil-Zeile | ✅ | leerer `GIT_SHA` → `REAL_EXIT=1`, Zeilen 4→4 |
+| 7 | Schema-Deploy-Fehler → gar keine Zeile | ✅ | strukturell: Versionsschritt steht **nach** der Schema-Schleife unter `set -e` → ein Schema-Fehler bricht vorher ab (real bezeugt durch den di2f-0006-Stub-Vorfall: Schema-Fehler → kein Schreiben) |
+| 8 | Re-Deploy desselben Stands → weitere Zeile | ✅ | zweiter `deploy.sh all int` → Zeile id=2 (kein UNIQUE-Konflikt) |
+| 9 | aktuelle Version = neueste Zeile je `environment` | ✅ | `max(id)` = jüngster Eintrag, korrekt |
+| 10 | Versionsschritt idempotent wiederholbar, bricht Deploy nicht | ✅ | mehrere Läufe fehlerfrei (+1 je Lauf), Schema-Deploy unverändert erfolgreich |
+
+### Edge Cases (alle ✅)
+- **Untagged** (Normalfall dev/int): `git_tag` NULL, Deploy grün.
+- **Getaggt**: Tag landet in `git_tag`.
+- **Leerer/nicht ermittelbarer Commit-SHA**: harter Abbruch (`exit 1`), keine Zeile.
+- **Nicht-numerische `APP_VERSION_*`**: Bash-Guard `exit 1` (in Backend-Smoke isoliert geprüft).
+- **`local`** vs. **Einzelschema**: beide schreiben nicht (zwei getrennte Guard-Zweige).
+
+### Feature-spezifische Security-Checks
+- **Injection:** Der CALL nutzt `psql`-Quoting `:'sha'`/`:'tag'`/`:'env'` (= `%L`) für Textwerte,
+  `:major/:minor/:build` numerisch — **keine** String-Konkatenation. Werte stammen ohnehin aus
+  kontrollierten Quellen (`<env>.env`, git, ENV-Arg). ✅
+- **SECURITY DEFINER:** keine neue Funktion; die genutzte Prozedur ist SECURITY INVOKER (di2f-0006). ✅
+- **Rechte:** `deploy.sh` verbindet als Schema-Owner `di2_<env>_fw` (Eigentümer der Objekte) — die
+  legitime Deploy-Identität, kein zusätzliches `GRANT`. ✅
+- **Secrets/sensible Daten:** `git_commit`/`git_tag` sind keine Secrets; `DB_FW_PASSWORD` kommt aus
+  GitHub-Secrets und wird **nicht** geloggt; die `>>> db_version: recording …`-Zeile enthält nur
+  Version/Commit/Tag/Env. ✅
+
+### Regression
+- `deploy.sh all local` weiterhin grün; der bestehende Schema-Deploy-Pfad ist **unverändert** (der
+  neue Block hängt **hinter** der Schema-Schleife). di2f-0006-Bausteine (`config.db_version` +
+  `config.sp_ins_db_version`) werden nur genutzt, nicht verändert. ✅
+
+### Kandidaten für nächsten `/security`-Run
+- **Trust-Auth-Annahme im lokalen Container** (nur Test-Setup, nicht im Repo) — irrelevant für den
+  echten Deploy; nicht im Scope.
+- Übernahme aus di2f-0006: Config-Default-Privileges greifen nur bei Owner-Deploy — hier **bestätigt
+  unkritisch**, da `deploy.sh` per Design als `…_fw`-Owner verbindet.
+
+### Hinweis zu permanenten Tests
+Der Write-Pfad lässt sich in der lokalen-only-CI (`deploy.sh all local` → schreibt bewusst nicht)
+nicht automatisiert abdecken; er wurde **manuell e2e** gegen eine gebootstrappte `int`-Umgebung
+verifiziert (Befehle oben dokumentiert). Die CI deckt weiterhin Idempotenz + `shellcheck` ab.

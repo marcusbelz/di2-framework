@@ -18,7 +18,7 @@
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
 | di2f-0006 | DB-Versionierung (`config.db_version` Historie) | In Review | [di2f-0006-config-db-version.md](di2f-0006-config-db-version.md) | 2026-06-12 |
-| di2f-0007 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | Geplant | [di2f-0007-deploy-db-version-verdrahtung.md](di2f-0007-deploy-db-version-verdrahtung.md) | 2026-06-12 |
+| di2f-0007 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | In Review | [di2f-0007-deploy-db-version-verdrahtung.md](di2f-0007-deploy-db-version-verdrahtung.md) | 2026-06-12 |
 
 <!-- Add features above this line -->
 
