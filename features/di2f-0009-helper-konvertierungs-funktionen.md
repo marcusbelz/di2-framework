@@ -211,7 +211,9 @@ helper.fn_convert_datetime2(p_value varchar, p_date_style varchar)  -> timestamp
 **Umsetzung / Details:**
 - **`fn_convert_datetime2` ist der Kern:** hält die zentrale **Style→PG-Masken-Tabelle** (CASE über die
   case-insensitiv normalisierten Style-Tokens), parst per `to_timestamp(wert, maske)::timestamp(6)`.
-  Unbekannter Style → NULL (vor dem Parsen); unparsbarer Wert → NULL über `EXCEPTION WHEN others`.
+  Unbekannter Style → NULL (vor dem Parsen); unparsbarer Wert → NULL über
+  `EXCEPTION WHEN data_exception` (SQLSTATE-Klasse 22 — Parse-/Datenfehler; echte Programmierfehler
+  propagieren bewusst).
 - **`fn_convert_date` / `fn_convert_datetime` delegieren** an `fn_convert_datetime2` und casten
   (`::date` bzw. `::timestamp(3)`) — **eine** Masken-Tabelle, keine Duplizierung. (Vorwärts-Referenz
   auf `008` ist unkritisch: PL/pgSQL-Bodies werden erst zur Laufzeit geprüft.)
@@ -280,3 +282,65 @@ helper.fn_convert_datetime2(p_value varchar, p_date_style varchar)  -> timestamp
 ### Regression
 - di2f-0006/0007/0008 unberührt; `helper`-Funktionen isoliert (eigenes Schema). `deploy.sh all local`
   grün. ✅
+
+---
+
+## Code Review
+
+**Reviewer:** `/review` · **Datum:** 2026-06-12 · **Range:** Backend-Commit `8d0eddc` + `convert_bit`-
+Ergänzung (`c78f662`) — `db/schemas/helper/functions/005.`–`008.` · **Verdict:** ✅ **Approve**
+(0 Blocker, 0 Major, 1 Minor)
+
+### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
+| AK | Umsetzung |
+|----|-----------|
+| 1 | [005.fn_convert_bit.sql](../db/schemas/helper/functions/005.fn_convert_bit.sql) — `upper(btrim())` + CASE (1/J/Y/TRUE→true, 0/N/FALSE/''→false, sonst NULL) |
+| 2/10 | [008.fn_convert_datetime2.sql](../db/schemas/helper/functions/008.fn_convert_datetime2.sql) — zentrale Style→Masken-`CASE`, `to_timestamp(...)::timestamp(6)` |
+| 3 | Tag-/Monat-Reihenfolge über die jeweilige Maske (DD/MM vs MM/DD) |
+| 4 | [006.fn_convert_date.sql](../db/schemas/helper/functions/006.fn_convert_date.sql) — `…::date` |
+| 5 | `timestamp(6)`; [007](../db/schemas/helper/functions/007.fn_convert_datetime.sql) `…::timestamp(3)` |
+| 6 | `EXCEPTION WHEN data_exception → RETURN NULL` (unparsbar) |
+| 7 | `p_value IS NULL → NULL`; `l_mask IS NULL → NULL` (unbekannter Style) |
+| 8 | `lower(btrim(p_date_style))` |
+
+Datei-Scope passt (4 Funktionen + Spec). Die `'Y'`-Ergänzung an `convert_bit` ist im QA verifiziert und
+Spec-seitig nachgezogen (kein Spec↔Code-Drift).
+
+### Conventions & Qualität (sql.md + functions.md)
+- Naming `fn_convert_*`/snake_case, Schema-DDL über `:schema_helper`, `OWNER TO :schema_owner`, nichts
+  in `public`. ✅
+- **Body-Referenzen hardcodiert schema-qualifiziert** (`helper.fn_convert_datetime2` in 006/007) —
+  sql.md-Konvention (psql interpoliert `:schema_*` nicht im Dollar-Quoting). ✅
+- Datei-Gerüst (`\echo`/`DROP … (signatur)`/`CREATE OR REPLACE`/Parameter-Block/Banner), `$function$`,
+  tabellarisches `CASE`-Alignment. ✅
+- **Volatilität korrekt:** `fn_convert_bit` `IMMUTABLE`, Datums-Funktionen `STABLE` (begründet:
+  DateStyle/Locale-abhängiges Parsen) — vom QA-Catalog bestätigt. ✅
+- **DRY:** eine Masken-Tabelle im Kern, die anderen casten — gute Single-Responsibility-Aufteilung. ✅
+- **Forward-Referenz** (006/007 → 008, das später lädt) unkritisch: PL/pgSQL-Bodies werden erst zur
+  Laufzeit geprüft; im selben Deploy-Lauf existieren alle. ✅
+
+### Security am Diff
+- **Kein Dynamic SQL:** `l_mask` aus interner `CASE` (nicht Eingabe), `l_value` als **Datenargument**
+  an `to_timestamp` — keine Konkatenation, keine Injection. ✅
+- **Kein `SECURITY DEFINER`** (INVOKER, QA-bestätigt); keine Secrets; Built-ins aus `pg_catalog`. ✅
+
+### Findings
+**Blocker (0):** — **Major (0):** —
+
+**Minor (1) — ✅ behoben:**
+1. **`EXCEPTION WHEN others`** in [008.fn_convert_datetime2.sql](../db/schemas/helper/functions/008.fn_convert_datetime2.sql):
+   **behoben** — auf `WHEN data_exception` (SQLSTATE-Klasse 22) eingegrenzt. Verifiziert: alle
+   `to_timestamp`-Parse-Fehler liegen in Klasse 22 (22007/22008) → AK6 (unparsbar → NULL) bleibt grün
+   (voller AK-Test erneut bestanden); echte Programmierfehler anderer Klassen propagieren jetzt, statt
+   still zu NULL zu werden. Der bewusste Verzicht auf einen `RAISE NOTICE`-Breadcrumb bleibt (kein
+   Log-Flooding beim Massen-Laden).
+
+### Hinweise (kein Finding)
+- **Zeit-only-Styles** (`hh:mm:ss`, `hh:mi:ss:mmm`) sind in der Masken-Tabelle, aber als Datums-
+  Konvertierung degeneriert (QA-Sektion) — bewusst nicht im AK-Fokus.
+- **`/security`-Kandidat:** Default-`EXECUTE`-auf-Funktionen an `PUBLIC` (siehe QA-Sektion).
+
+### Empfehlung
+**Approve** — konventionskonform, DRY, injection-sicher; Volatilität korrekt gesetzt; alle AKs im Code
+belegt. Der eine Minor ist optional. Nächster Schritt: `/deploy dev` (gemeinsam mit di2f-0008 möglich —
+beide `helper`-Funktionen, kein Stub-Vorbehalt).

@@ -75,8 +75,10 @@ BEGIN
    -- to_timestamp liefert timestamptz; ::timestamp(6) gibt den zonenlosen Wandwert
    RETURN to_timestamp(l_value, l_mask)::timestamp(6);
 
-EXCEPTION WHEN others THEN
-   -- unparsbarer Wert -> NULL (Datenfehler-Protokollierung ist Sache des Aufrufers)
+EXCEPTION WHEN data_exception THEN
+   -- unparsbarer/ungueltiger Wert (SQLSTATE-Klasse 22, z. B. 22007/22008) -> NULL;
+   -- Datenfehler-Protokollierung ist Sache des Aufrufers. Andere Fehlerklassen
+   -- (echte Programmierfehler) propagieren bewusst, statt still zu NULL zu werden.
    RETURN NULL;
 END;
 $function$;
