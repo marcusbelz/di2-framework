@@ -213,3 +213,57 @@ helper.fn_split           (p_value varchar, p_separator varchar)              ->
 - Unicode/Umlaute zeichen-basiert korrekt (`fn_ends_with('grüße','ße')`=true). ✅
 - Volatilität `IMMUTABLE`, Owner `…_fw` (Catalog geprüft). ✅
 - Doppelter Deploy fehlerfrei (`CREATE OR REPLACE`). ✅
+
+---
+
+## QA Test Results
+
+**Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (0 Bugs)
+
+**Testaufbau:** PostgreSQL 17 (Container), Funktionen im `helper`-Schema deployt. Neues **permanentes
+Testskript** [db/tests/helper/001.string_funktionen.sql](../db/tests/helper/001.string_funktionen.sql)
+(psql/`ASSERT`, Konvention wie `config/005.process.sql`), Wertetabellen aus den SQL-Server-Vorlage-Testfällen.
+
+### Akzeptanzkriterien
+| AK | Inhalt | Ergebnis |
+|----|--------|----------|
+| 1 | `fn_is_null_or_empty` (NULL/leer/Whitespace × trim) | ✅ alle 10 Wertepaare |
+| 2 | `fn_starts_with` case-sensitiv, literal | ✅ inkl. `Ab`→false |
+| 3 | `fn_ends_with` case-sensitiv, literal | ✅ inkl. `De`→false |
+| 4 | NULL-Input/-Pattern → false (keine Exception) | ✅ |
+| 5 | leeres Pattern → true | ✅ |
+| 6 | `fn_split('A,B,C',',')` → 3 Zeilen `A`,`B`,`C` | ✅ |
+| 7 | NULL/leerer Wert → 0 Zeilen | ✅ |
+| 8 | innere Leer-Elemente bleiben (`A,,C`) | ✅ |
+| 9 | abschliessendes Trennzeichen → leeres Schluss-Element (`A,B,C,`→4) | ✅ |
+| 10 | deterministisch + idempotenter Deploy | ✅ (doppelter Deploy, `CREATE OR REPLACE`) |
+
+### Edge Cases (alle ✅)
+- `p_trim = NULL` → wie „nicht trimmen" behandelt.
+- **Tab wird NICHT getrimmt** (`btrim` entfernt nur Leerzeichen — wie die SQL-Server-Vorlage; bewusst,
+  kein Bug).
+- Pattern länger als Wert → false (keine Exception).
+- NULL/leeres Trennzeichen → ganzer Wert als eine Zeile; nur-Trennzeichen (`','`) → zwei leere Elemente.
+- Unicode/Umlaute zeichen-basiert.
+
+### Feature-spezifische Security-Checks
+- **Injection:** kein Dynamic SQL; `fn_split` nutzt `string_to_table` (parametrisiert) — keine Fläche. ✅
+- **SECURITY DEFINER:** nein (alle 4 `prosecdef = false`, INVOKER) — keine Privilege-Escalation. ✅
+- **Rechte:** unter der DML-Rolle `di2f_rw` ausführbar (USAGE auf `helper` + EXECUTE vorhanden);
+  Funktionen owned by `…_fw`. ✅
+- **Sensible Daten / RLS:** N/A (reine Funktionen, keine Tabellen, keine Logs). ✅
+
+### Hinweise (informativ, keine Bugs)
+- **Mehrzeichen-Trennzeichen** wird in `fn_split` nicht abgelehnt und wirkt als Mehrzeichen-Delimiter
+  (`string_to_table`-Verhalten) — über den dokumentierten Ein-Zeichen-Vertrag hinaus **toleranter**,
+  nicht falsch. Falls strikte Ein-Zeichen-Prüfung gewünscht ist: spätere Verschärfung.
+
+### Kandidaten für nächsten `/security`-Run
+- **Default-`EXECUTE`-auf-Funktionen:** PostgreSQL grantet `EXECUTE` neuer Funktionen an `PUBLIC`; der
+  Bootstrap `REVOKE`t das nicht. Für zustandslose Helfer risikoarm (Zugriff wird über `USAGE` auf das
+  `helper`-Schema gegated), aber die projektweite Funktions-Grant-Policy sollte `/security` prüfen
+  (gleiches Thema wie die Config-Default-Privileges-Notiz).
+
+### Regression
+- di2f-0006/0007 (`config.db_version`, Deploy-Verdrahtung) unberührt — `helper`-Funktionen sind
+  isoliert (eigenes Schema, keine geteilten Objekte). `deploy.sh all local` weiterhin grün. ✅
