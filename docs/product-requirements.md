@@ -35,7 +35,8 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
 | P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
 | P1 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | Deployed | [di2f-0001](../features/archive/di2f-0001-finalisierung-config-process.md) |
-| P1 | DB-Versionierung — `config.db_version` (Deploy-Historie: Version, Commit, Tag, Env) | Geplant | [di2f-0006](../features/di2f-0006-config-db-version.md) |
+| P1 | DB-Versionierung — `config.db_version` (Deploy-Historie: Version, Commit, Tag, Env) | In Review | [di2f-0006](../features/di2f-0006-config-db-version.md) |
+| P1 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | Geplant | [di2f-0007](../features/di2f-0007-deploy-db-version-verdrahtung.md) |
 | P1 | Test-Suite (`db/tests/`) | Geplant | — |
 | P1 | DB-CI — Dry-Run-Deploy + Lint (GitHub Actions, Required-Gate) | Deployed | [di2f-0005](../features/archive/di2f-0005-db-ci-dry-run-deploy-lint.md) |
 | P1 | GitHub-Actions-Deployment (dev / int / test / prod) | Deployed | [di2f-0004](../features/archive/di2f-0004-github-actions-db-workflows-secrets.md) |
