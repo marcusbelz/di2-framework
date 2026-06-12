@@ -267,3 +267,59 @@ Testskript** [db/tests/helper/001.string_funktionen.sql](../db/tests/helper/001.
 ### Regression
 - di2f-0006/0007 (`config.db_version`, Deploy-Verdrahtung) unberührt — `helper`-Funktionen sind
   isoliert (eigenes Schema, keine geteilten Objekte). `deploy.sh all local` weiterhin grün. ✅
+
+---
+
+## Code Review
+
+**Reviewer:** `/review` · **Datum:** 2026-06-12 · **Range:** Backend-Commit `d463e3a`
+(`db/schemas/helper/functions/001.`–`004.`) · **Verdict:** ✅ **Approve** (0 Blocker, 0 Major, 1 Minor)
+
+### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
+| AK | Umsetzung |
+|----|-----------|
+| 1 | [001.fn_is_null_or_empty.sql](../db/schemas/helper/functions/001.fn_is_null_or_empty.sql) — NULL→true, optional `btrim`, `char_length=0` |
+| 2 | [002.fn_starts_with.sql](../db/schemas/helper/functions/002.fn_starts_with.sql) — `starts_with()` (literal, case-sensitiv) |
+| 3 | [003.fn_ends_with.sql](../db/schemas/helper/functions/003.fn_ends_with.sql) — `right(wert, char_length(muster)) = muster` |
+| 4/5 | NULL-Input→false, leeres Muster→true (in 002/003) |
+| 6–9 | [004.fn_split.sql](../db/schemas/helper/functions/004.fn_split.sql) — `string_to_table`, null-sichere Guards, Leer-Elemente erhalten |
+| 10 | alle `CREATE OR REPLACE` + `DROP … IF EXISTS`, deterministisch |
+
+Datei-Scope passt exakt (4 Funktionen + Spec), keine Fremddateien, keine ungenannten Nebeneffekte.
+
+### Conventions & Qualität (sql.md + functions.md)
+- Naming `fn_<name>` snake_case, Schema durchgängig über `:schema_helper`, `OWNER TO :schema_owner`,
+  nichts in `public`. ✅
+- Datei-Gerüst: `\echo`-Kopf/Fuß, `DROP FUNCTION IF EXISTS (signatur)` → `CREATE OR REPLACE`,
+  `-- Parameter`-Dokublock, Beschreibungs-Banner am Dateiende. ✅
+- `RETURNS`/`LANGUAGE`/`IMMUTABLE` je eigene Zeile, `$function$`-Quoting, tabellarisches Alignment,
+  `T01`-Positionsalias in `fn_split`. ✅
+- **Idempotenz** + **IMMUTABLE** (vom QA-Catalog bestätigt). ✅
+- **Validator-Stil ohne `EXCEPTION`-Block** (reine, null-sichere Logik ohne Fehlerpfad) — von
+  `functions.md` für Validator-Functions ausdrücklich gedeckt; bewusst und korrekt.
+
+### Security am Diff
+- **Kein Dynamic SQL**; `fn_split` nutzt `string_to_table` (Werte als Datenargument, keine
+  Konkatenation). Keine Injection-Fläche. ✅
+- **Kein `SECURITY DEFINER`** (INVOKER, vom QA bestätigt); keine Secrets; Body referenziert nur
+  `pg_catalog`-Bordmittel (`starts_with`/`right`/`btrim`/`string_to_table`) — search_path-unabhängig. ✅
+
+### Findings
+**Blocker (0):** — **Major (0):** —
+
+**Minor (1, optional):**
+1. **`fn_split` validiert das Trennzeichen nicht auf ein Zeichen** —
+   [004.fn_split.sql](../db/schemas/helper/functions/004.fn_split.sql): ein Mehrzeichen-`p_separator`
+   wirkt als Mehrzeichen-Delimiter (`string_to_table`). Das ist **toleranter** als der dokumentierte
+   Ein-Zeichen-Vertrag, nicht falsch (QA bestätigt). *Optional:* falls strikt gewünscht, im Backend
+   auf `char_length = 1` prüfen — sonst Vertrag in der Spec auf „beliebiger Trenn-String" weiten.
+   Niedrige Prio.
+
+### Hinweise (kein Finding)
+- **`/security`-Kandidat:** Default-`EXECUTE`-auf-Funktionen an `PUBLIC` (Bootstrap revoke't nicht) —
+  projektweit, siehe QA-Sektion.
+
+### Empfehlung
+**Approve** — konventionskonforme, isolierte, injection-sichere Funktionen; alle AKs im Code belegt;
+IMMUTABLE bestätigt. Der eine Minor ist optional. Nächster Schritt: `/deploy dev` (gemeinsam mit
+di2f-0009 möglich — beide ins `helper`-Schema, kein Stub-Vorbehalt).
