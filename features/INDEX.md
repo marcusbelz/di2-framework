@@ -17,7 +17,7 @@
 
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
-| _(keine aktiven Features — alle deployt, siehe [archive/INDEX.md](archive/INDEX.md))_ | | | | |
+| di2f-0010 | Prozessprotokollierung `log.execution` — Insert/Update-Prozeduren | In Review | [di2f-0010](di2f-0010-execution-insert-update.md) | 2026-06-12 |
 
 <!-- Add features above this line -->
 
@@ -28,4 +28,4 @@ Abgeschlossene, live deployte Features stehen unter [archive/](archive/) und sin
 wandert seine Spec via `git mv` nach `features/archive/` und die Zeile aus der Tabelle oben
 in die Archiv-Tabelle.
 
-## Nächste freie ID: di2f-0010
+## Nächste freie ID: di2f-0011
