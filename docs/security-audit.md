@@ -195,3 +195,4 @@ _Keine._
 | 2026-06-12 | Deploy prod di2f-0006…0009 (`a78e83d`) | — | — | ⚠️ ohne deckenden Audit ausgerollt — nachträglich gedeckt durch Voll-Audit |
 | 2026-06-12 | Voll-Audit (Alle 1–8) — deckt di2f-0006…0009 | 0 | 0 | ✅ — neue Fläche clean; +I4 (mitigiert); M1 akzeptiert, M2→Niedrig, N1 entschärft; offenes Mittel nur M3 |
 | 2026-06-12 | **Voll-Audit (Alle 1–8) — deckt di2f-0010 (log.execution Insert/Update)** | 0 | 0 | ✅ — neue Fläche clean (kein Dynamic SQL/Secrets, INVOKER, least-priv als `di2f_sa` verifiziert); I1 für Execution-Schreibpfad erfüllt; +I5 (state-Normalisierung, mitigiert) |
+| 2026-06-12 | Deploy prod di2f-0010 (Gate: Audit 2026-06-12) | 0 | 0 | ✅ — Go-Live di2f-0010 prod `00775cf` (PR #8), Release-Tag `v1.1.0` |

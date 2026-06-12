@@ -1,7 +1,7 @@
 # di2f-0010: Prozessprotokollierung `log.execution` — Insert/Update-Prozeduren
 
 - **Priorität:** P0 (MVP)
-- **Status:** In Arbeit (Backend implementiert, QA ausstehend)
+- **Status:** Deployed
 - **Schema(s):** log (primär) · liest config (`process`, `db_version`)
 
 ## Problem / Motivation
@@ -335,6 +335,7 @@ verifiziert. Nächster Schritt: `/deploy dev`.
 | dev | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=dev, Branch dev) | ✅ grün |
 | int | 2026-06-12 | `9ecb0ff` | „DB - deploy" (schema=all, env=int, Branch dev) | ✅ grün |
 | test | 2026-06-12 | `9b89b44` | „DB - deploy" (schema=all, env=test, Branch dev) | ✅ grün |
+| prod | 2026-06-12 | `00775cf` | „DB - deploy" (schema=all, env=prod, Branch main) | ✅ grün — Go-Live |
 
 - **Push-Voraussetzung:** Die di2f-0010-Commits (`99e5daf`/`2650ab2`/`9ecb0ff`) lagen zunächst nur
   lokal; ein erster dev/int-Deploy-Anlauf lief noch gegen `origin/dev = f1c5240` (**ohne**
@@ -342,6 +343,9 @@ verifiziert. Nächster Schritt: `/deploy dev`.
   **int** erneut angestoßen — beide grün, jetzt inkl. der `log.execution`-Prozeduren.
 - **Idempotenz:** Re-Deploy spielt die Prozeduren via `DROP … IF EXISTS` + `CREATE OR REPLACE` ein
   (lokal in QA 2× rc=0 verifiziert).
-- **Nächste Stufen:** `/deploy test` (Branch `dev`) optional als Pre-Prod-Abnahme; **vor**
-  `/deploy prod` ist `/security` Pflicht (bewertet u. a. den `CHECK`-Constraint-Kandidaten + die
-  Cross-Schema-Grants im realen Bootstrap).
+- **Go-Live prod `00775cf` (2026-06-12):** Stand von `main` (Merge `dev`→`main`, PR #8) nach prod
+  ausgerollt; Workflow „DB - deploy" grün. Gate erfüllt: Security-Audit 2026-06-12 grün (0 Critical /
+  0 High, Go-Live ✅ JA; deckt di2f-0010). Release-Tag `v1.1.0`.
+- **Offen als Follow-up (kein Blocker):** optionaler `CHECK`-Constraint auf `log.execution(state)`/
+  Kombinatorik (Review-Minor 3 / Audit I5) und der Cross-Schema-Grant-Punkt im realen Bootstrap —
+  beide im Audit als mitigiert/`/security`-Kandidaten geführt.
