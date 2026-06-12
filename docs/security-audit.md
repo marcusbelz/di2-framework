@@ -12,6 +12,20 @@
 | Kritische Findings | 0 offen / 0 behoben |
 | Hohe Findings | 0 offen / 0 behoben |
 
+> **Architektur-Annahmen / Threat-Model (User-Entscheid 2026-06-12 — maßgeblich für die Bewertung):**
+> 1. **Single-Tenant:** Es teilen sich **nie** mehrere Mandanten eine DB. → Row-Isolation (RLS) hat
+>    keinen Anwendungsfall (M1 akzeptiert).
+> 2. **Kein öffentlicher DB-Zugriff:** Die Datenbank ist **nicht** öffentlich/aus dem Internet
+>    erreichbar; Verbindungen laufen intern/lokal (Deploy + App via `localhost` auf dem Hetzner-Host).
+>    → Externe Angreifer haben keine direkte DB-Fläche; Netz-Verschlüsselung (SSL) ist Optional statt
+>    Pflicht (N1 entschärft), und die Exponierung sensibler Log-Werte beschränkt sich auf
+>    **vertrauenswürdige** interne Rollen (M2 entschärft).
+> 3. **Eine effektive RW-Rolle** (`role_rw` → `_sa`), die legitim alle Zeilen braucht.
+>
+> Diese Annahmen verschieben den Fokus weg von Zugriffs-Isolation (RLS/Netz) hin zu **Build-Hygiene**
+> für die noch ungebauten Teile (`etl`-Dynamic-SQL, Logging-Schreibpfade) — dort liegt die reale
+> künftige Angriffsfläche.
+
 > **Scope-Hinweis:** Das Framework ist im Aufbau. Gebaut & auditiert: `config.process` (Tabelle,
 > CRUD-Prozeduren, Seed, modified-Trigger); **`config.db_version` + `config.sp_ins_db_version`**
 > (di2f-0006); die **`deploy.sh`-Versionszeile** (di2f-0007); die **acht `helper`-Funktionen**
@@ -31,8 +45,10 @@
 > `SECURITY DEFINER`, `IMMUTABLE`/`STABLE`, `fn_convert_datetime2` fängt nur `data_exception` ab),
 > `deploy.sh`-Versionszeile (`:'…'`-gequotet → keine Injection; Werte aus Env/git, **keine**
 > Secret-Ausgabe), `db-deploy.yml` (`git fetch --tags`, Secrets via `${{ secrets.* }}`). **Keine neuen
-> Critical/High/Mittel.** Ein neuer Info-Punkt (I4, PUBLIC-EXECUTE-Default, mitigiert). M1–M3 + N1/I1–I3
-> bestehen unverändert.
+> Critical/High/Mittel.** Ein neuer Info-Punkt (I4, PUBLIC-EXECUTE-Default, mitigiert). **Neubewertung
+> nach Architektur-Annahmen (oben):** **M1 akzeptiert** (RLS ohne Anwendungsfall bei Single-Tenant),
+> **M2 → Niedrig** (kein öffentlicher Zugriff + eine vertrauenswürdige Rolle → Build-Hygiene), **N1
+> entschärft**. Verbleibendes „echtes" Mittel: nur **M3** (CI-Dry-Run, internes Repo, mitigiert).
 
 ## Findings
 
@@ -42,31 +58,34 @@ _Keine._
 ### Hoch
 _Keine._
 
-### Mittel
+### Akzeptierte Risiken / Bewusste Entscheidungen
 
-#### M1 — RLS auf keiner Tabelle aktiviert (sensible `log.*` ungeschützt auf Row-Ebene)
+#### M1 — Keine RLS (Row Level Security) — **bewusst zurückgestellt / Won't-fix**
 - **Bereich:** 2. Row Level Security & Policies (D1)
-- **Wo:** projektweit — kein `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` in `db/` (Grep 2026-06-12: 0
-  Treffer); `db/database/08.create.role.rw.sql` gibt `role_rw` volle DML auf **alle** Schemas.
-- **Status:** ❌ Offen
-- **Risiko:** Zugriffskontrolle stützt sich allein auf Rollen-Grants; `role_rw` (an `_sa` vererbt)
-  liest/schreibt alle Zeilen aller Tabellen. Konventionen (`policies.md`/`tables.md`) und PRD-Roadmap
-  (P1 „RLS-Policies & Rollenrechte (Schema log)") fordern RLS auf `log.*`. Bei **einer** RW-Rolle ohne
-  Multi-Tenant-Requirement begrenzt — wird Problem, sobald mehrere Mandanten/Akteure dieselbe DB teilen.
-- **Fix:** RLS-Feature umsetzen (P1): `ALTER TABLE :schema_log.<t> ENABLE ROW LEVEL SECURITY;` (sensible
-  Tabellen zusätzlich `FORCE`), Policy je Befehl mit `USING`/`WITH CHECK`, Default-Deny, Rollen explizit.
+- **Wo:** projektweit — kein `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` in `db/`.
+- **Status:** ✅ **Akzeptiert (2026-06-12)** — kein offenes Finding mehr.
+- **Begründung:** RLS isoliert **Zeilen** zwischen Mandanten/Akteuren. **Architektur-Entscheid (User,
+  2026-06-12): es teilen sich NIE mehrere Mandanten eine DB**, und es gibt **eine** effektive
+  RW-Rolle (`role_rw` → `_sa`), die legitim **alle** Zeilen braucht. Damit bringt RLS **keinen**
+  Isolationswert — kein Akteur, gegen den isoliert würde. Zugriffskontrolle über die (minimalen,
+  `public`-gehärteten) Rollen-Grants ist für diese Single-Tenant-/Single-Role-Architektur **ausreichend**.
+- **Konsequenz:** Die `tables.md`/`policies.md`-Empfehlung „RLS auf `log.*`" und der PRD-P1-Eintrag
+  „RLS-Policies" sind für diese Architektur **nicht mehr erforderlich** (Empfehlung: PRD-Roadmap-Eintrag
+  streichen/entschärfen; Konventions-Hinweis als „nur falls je Row-Isolation nötig" relativieren).
+- **Rest-Hinweis:** Was bleibt, ist **kein** RLS-Thema, sondern **Daten-Hygiene** beim Logging — siehe M2.
 
-#### M2 — `log.error`/`log.trace` fassen per Design Datensatz-Werte (potenziell PII)
+#### M2 — `log.error`/`log.trace` fassen per Design Datensatz-Werte (potenziell PII) → **Niedrig (Daten-Hygiene)**
 - **Bereich:** 6. Sensible Daten in Logs (D4)
 - **Wo:** [db/schemas/log/tables/004.error.sql](../db/schemas/log/tables/004.error.sql)
   (`id1_value`/`id2_value`/`id3_value`, `error_value`, `description`); analog `log.trace`.
-- **Status:** ❌ Offen
-- **Risiko:** Die Fehlertabelle hält Werte fehlerhafter Datensätze — je nach Anwendung PII (E-Mail,
-  Namen, IDs). Ohne RLS (M1) und mit breiter `role_rw` für jede DML-Rolle lesbar. Für die Aufbau-Phase
-  (noch keine Produktivdaten) vertretbar; bei echten PII-Daten nachschärfen.
-- **Fix:** Bei PII: RLS (M1) + ggf. Maskierung/Verzicht auf Klartext in `*_value`-Spalten; dokumentieren,
-  welche Datenklassen zulässig sind. Logging-Prozeduren: keine Secrets/Passwörter in
-  `description`/`error_value`/`SQLERRM`.
+- **Status:** ⚠️ **Niedrig / Daten-Hygiene** (von „Mittel" herabgestuft 2026-06-12)
+- **Risiko (neu bewertet):** Die Fehlertabelle hält Werte fehlerhafter Datensätze (ggf. PII). Mit den
+  Architektur-Annahmen (kein öffentlicher Zugriff, **eine** vertrauenswürdige RW-Rolle) ist das **kein**
+  Zugriffs-Isolationsproblem mehr — RLS ist gegenstandslos (M1). Es bleibt eine reine **Build-Hygiene**:
+  beim Bau der Logging-Prozeduren keine **Secrets/Passwörter** und nur die nötigen Datenwerte in
+  `description`/`error_value`/`*_value`/`SQLERRM` schreiben.
+- **Fix:** Logging-Prozeduren so bauen, dass keine Secrets/Tokens in Klartext geloggt werden; bei echten
+  PII-Spalten dokumentieren, welche Datenklassen zulässig sind. (Überschneidet sich mit I1.)
 
 #### M3 — CI `dry-run-deploy` führt PR-SQL real aus (RCE-Fläche auf dem Runner)
 - **Bereich:** 8. Deployment & CI/CD (D7)
@@ -82,8 +101,10 @@ _Keine._
   beschränken (`if: github.event.pull_request.head.repo.fork == false`).
 
 ### Niedrig / Informational
-- **N1 (D6, Niedrig):** Keine SSL/TLS-Anforderung (`sslmode`/`hostssl`) für Prod-Verbindungen
-  dokumentiert. Empfehlung: für `prod` `sslmode=require` (oder `verify-full`). (2026-06-12: offen.)
+- **N1 (D6, Niedrig — entschärft 2026-06-12):** SSL/TLS für DB-Verbindungen ist **optional**, da die DB
+  **nicht öffentlich** erreichbar ist und Verbindungen intern/lokal laufen (`localhost` auf dem
+  Hetzner-Host → keine Netz-Traversierung). Empfehlung **nur**, falls Verbindungen je eine
+  Vertrauensgrenze im Netz überqueren: dann `sslmode=require`/`verify-full`.
 - **I1 (D8, Info):** Logging-Prozeduren (`sp_*_execution/component/trace`, Schreibpfad nach `log.error`)
   noch nicht gebaut — beim Bau Status deterministisch + ohne Secrets in `SQLERRM`/Werten protokollieren.
 - **I2 (D2, Info):** `etl`-Schema (generisches Dynamic SQL) noch leer — Haupt-Injection-Fläche existiert
@@ -136,10 +157,10 @@ _Keine._
 
 | # | Kategorie | Status | Anmerkung |
 |---|-----------|--------|-----------|
-| D1 | Broken Access Control | ⚠️ | Rollen/Least-Priv ✅, `public` gehärtet ✅, PUBLIC-EXECUTE-Default mitigiert (I4); **RLS fehlt** (M1, P1-Roadmap). |
+| D1 | Broken Access Control | ✅ | Rollen/Least-Priv ✅, `public` gehärtet ✅, PUBLIC-EXECUTE-Default mitigiert (I4). RLS bewusst **nicht** umgesetzt — bei Single-Tenant + einer RW-Rolle ohne Mehrwert (M1 akzeptiert). |
 | D2 | SQL Injection | ✅ | Aktueller Code injection-sicher (`quote_ident`/`format()`-Messages, `:'…'`-Quoting in deploy.sh, helper ohne Dynamic SQL). `etl` noch leer (I2). |
 | D3 | Privilege Escalation | ✅ | Kein `SECURITY DEFINER`; fixe `search_path`; Owner korrekt; helper/db_version INVOKER. |
-| D4 | Sensitive Data Exposure | ⚠️ | `log.error`/`trace` halten Datensatz-Werte (PII-fähig), ohne RLS breit lesbar (M2). `config.db_version` nicht-sensibel. |
+| D4 | Sensitive Data Exposure | ✅ | Kein öffentlicher Zugriff + eine vertrauenswürdige Rolle → kein Exposure-Problem; verbleibt Build-Hygiene beim Logging (M2, niedrig). `config.db_version` nicht-sensibel. |
 | D5 | Secrets Management | ✅ | Keine hardcodierten Secrets; `.gitignore` deckt ab; nur `local` `pw`; deploy.sh loggt kein Passwort. |
 | D6 | Insecure Config | ✅ | `public` gehärtet, nur `pgcrypto`. SSL für Prod offen (N1). |
 | D7 | CI/CD Integrity | ⚠️ | Secrets sauber, fork-sicher; Dry-Run führt PR-SQL als Superuser aus (M3, internes Repo). |
@@ -153,4 +174,4 @@ _Keine._
 | 2026-06-12 | Alle (1–8) | 0 | 0 | ✅ (Re-Audit nach config.process-Umbau + Bootstrap-Preflight; Lage unverändert) |
 | 2026-06-12 | Deploy prod (Gate: Audit 2026-06-12) | 0 | 0 | ✅ — Go-Live di2f-0001 prod `6290cd6`, Release-Tag `v1.0.0` |
 | 2026-06-12 | Deploy prod di2f-0006…0009 (`a78e83d`) | — | — | ⚠️ ohne deckenden Audit ausgerollt — **nachträglich gedeckt durch Voll-Audit unten** |
-| 2026-06-12 | **Voll-Audit (Alle 1–8) — deckt di2f-0006…0009** | 0 | 0 | ✅ — neue Fläche (db_version, sp_ins_db_version, 8 helper-Fn, deploy.sh-Versionszeile) clean; +I4 (mitigiert); M1–M3 unverändert |
+| 2026-06-12 | **Voll-Audit (Alle 1–8) — deckt di2f-0006…0009** | 0 | 0 | ✅ — neue Fläche clean; +I4 (mitigiert); Neubewertung per Architektur-Annahmen: **M1 akzeptiert** (Single-Tenant), **M2→Niedrig** + **N1 entschärft** (kein öffentlicher DB-Zugriff); offenes Mittel nur M3 (CI, internes Repo) |

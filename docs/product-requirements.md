@@ -33,7 +33,7 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 | P1 | Schema `helper` — Konvertierungsfunktionen (convert_bit, convert_date/datetime/datetime2) | Deployed | [di2f-0009](../features/archive/di2f-0009-helper-konvertierungs-funktionen.md) |
 | P1 | Konfigurations-Stammdaten (`config/data/`) | Geplant | — |
 | P1 | Log-Views — Monitoring/Auswertung (Dauer, Fehler, Status) | Geplant | — |
-| P1 | RLS-Policies & Rollenrechte (Schema `log`) | Geplant | — |
+| — | ~~RLS-Policies (Schema `log`)~~ — **entfällt** (Single-Tenant-Entscheid 2026-06-12: keine Row-Isolation nötig; Rollenrechte bereits im Bootstrap `08.create.role.rw.sql`) | Entfällt | — |
 | P1 | Audit-Trigger (Setzen von Audit-Spalten) | Geplant | — |
 | P1 | Finalisierung `config.process` (Umzug aus log, CRUD, Seed, Test) | Deployed | [di2f-0001](../features/archive/di2f-0001-finalisierung-config-process.md) |
 | P1 | DB-Versionierung — `config.db_version` (Deploy-Historie: Version, Commit, Tag, Env) | Deployed | [di2f-0006](../features/archive/di2f-0006-config-db-version.md) |
