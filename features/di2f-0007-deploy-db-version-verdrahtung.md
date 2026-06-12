@@ -203,3 +203,39 @@ Die Umsetzung ist **kein** DB-`/backend`, sondern **Skript-/Workflow-Arbeit**: E
 `.github/workflows/db-deploy.yml` (Tags auf den Host fetchen). Tests laufen über die CI
 (`deploy.sh all local` zeigt, dass `local` **nicht** schreibt) und einen Deploy in eine
 Nicht-`local`-Umgebung (eine Zeile entsteht).
+
+---
+
+## Implementierung (Backend)
+
+**Geänderte Bausteine (keine DB-Objekte):**
+- [`db/scripts/deploy.sh`](../db/scripts/deploy.sh) — nach der Schema-Schleife ein
+  **geguardeter Versionsschritt**: nur bei `SCHEMA=all` **und** `ENV != local`. Er validiert
+  (`GIT_SHA` nicht leer; `APP_VERSION_*` numerisch — sonst `exit 1` → Deploy rot), ermittelt den
+  `GIT_TAG` über `git describe --tags --exact-match HEAD` (kein Tag → leer → Prozedur schreibt NULL)
+  und ruft `config.sp_ins_db_version(NULL, major, minor, build, git_commit, git_tag, environment)`.
+- [`.github/workflows/db-deploy.yml`](../.github/workflows/db-deploy.yml) — `git fetch` um
+  `--tags --force` erweitert, damit `git describe` auf dem Deploy-Host den Release-Tag sieht.
+
+**Implementierungsdetails / Fallstricke:**
+- **SQL über stdin, nicht `-c`:** `psql -c` interpoliert die `:var`-Variablen **nicht**
+  (Syntaxfehler `at or near ":"`). Der Aufruf läuft daher über eine stdin-Heredoc; Textwerte werden
+  mit `:'…'` injection-sicher gequotet (entspricht `%L`), `:major/:minor/:build` bleiben numerisch —
+  keine String-Konkatenation von Eingaben.
+- **`local`-Skip** verhindert, dass der `environment`-CHECK von `config.db_version` einen lokalen
+  Deploy bricht.
+- **Reihenfolge:** Der Aufruf steht **nach** der Schema-Schleife → bei einem Schema-Fehler bricht
+  `set -e` vorher ab, es wird keine Zeile geschrieben (AK7).
+
+**Smoke-Test (PostgreSQL 17, Container, gegen `di2f`):**
+- Voller Write-Block (`env=dev`): genau eine Zeile, `release_version` generiert, untagged →
+  `git_tag` NULL. ✅
+- Tag gesetzt (`tag=v2.3.4`): landet in `git_tag`. ✅
+- `deploy.sh all local`: grün, **keine** db_version-Zeile (local-Skip). ✅
+- Guard (`all` + non-local) und Versions-Validierung (nicht-numerisch → Abbruch) geprüft. ✅
+- `shellcheck --severity=warning db/scripts/deploy.sh`: sauber. ✅
+
+**Folgeschritt-Hinweis fürs Deployen:** Da `config.db_version` erst seit di2f-0006 die neue Struktur
+hat, gilt der dort dokumentierte Stub-Vorbehalt weiter (vor dem ersten Deploy einer Umgebung mit
+altem Stand: `clean all` → `deploy all`). di2f-0007 ändert daran nichts — es fügt nur den
+Versionsschritt hinzu.

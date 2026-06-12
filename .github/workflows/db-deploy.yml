@@ -44,6 +44,8 @@ jobs:
               exit 1
             fi
             cd "${{ vars.DEPLOY_PATH }}"
-            git fetch origin "${{ github.ref_name }}"
+            # --tags: Release-Tags mitziehen, damit deploy.sh den git_tag des
+            # deployten Stands ermitteln kann (di2f-0007); --force gegen Re-Run-Konflikte.
+            git fetch --tags --force origin "${{ github.ref_name }}"
             git reset --hard "origin/${{ github.ref_name }}"
             bash db/scripts/deploy.sh "${{ github.event.inputs.schema }}" "${{ github.event.inputs.environment }}"
