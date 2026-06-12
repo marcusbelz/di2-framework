@@ -435,13 +435,15 @@ oder als Follow-up geführt werden. Nächster Schritt: `/deploy dev`.
 
 | Env | Datum | Branch | Commit | Status |
 |-----|-------|--------|--------|--------|
-| dev | 2026-06-12 | `dev` | `2988eba` | ✅ ausgerollt |
-| int | 2026-06-12 | `dev` | `2988eba` | ✅ ausgerollt |
+| dev | 2026-06-12 | `dev` | `e78208f` | ✅ ausgerollt (Deploy-Log grün, `db_version` frisch mit neuer Struktur) |
+| int | — | `dev` | — | ⏳ ausstehend (clean all + deploy all) |
 
-- **Stub-Migration:** Vor dem Deploy war der alte `db_version`-Stub (`release_version`-PK +
-  `internal_version`) auf den Umgebungen vorhanden; per „DB - clean" (config) + „DB - deploy" (all)
-  abgeräumt und neu aufgebaut (inkl. Wiederherstellung des `log.execution → config.process`-FK durch
-  den `all`-Deploy).
+- **Stub-Migration (Pflicht-Vorschritt):** Der alte `db_version`-Stub (`release_version`-PK +
+  `internal_version`) ist auf jeder bereits bespielten Umgebung vorhanden. `CREATE TABLE IF NOT
+  EXISTS` migriert ihn **nicht** — der Deploy bricht sonst bei `COMMENT ON COLUMN major` ab
+  (`ON_ERROR_STOP=1`). Daher vor dem Deploy zwingend **„DB - clean" (`all`) → „DB - deploy" (`all`)**;
+  `clean all` umgeht zugleich den `config.process`-CASCADE-Nebeneffekt auf den
+  `log.execution → config.process`-FK. dev so erfolgreich migriert; int/test/prod analog.
 - **Verbleibend:** `test` (Pre-Prod, Abnahme) ausstehend; `prod` erst nach grünem `/security`-Gate.
 - Offene Review-Minors (Parameter-Doku-Sprache, optionaler `git_commit`-Längencheck, Spec-Doku-Nit)
   weiterhin nicht-blockierend offen.
