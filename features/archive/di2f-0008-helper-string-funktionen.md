@@ -1,7 +1,7 @@
 # di2f-0008: helper-String-/Prädikat-Funktionen (Portabilitäts-Layer)
 
 - **Priorität:** P1
-- **Status:** Geplant
+- **Status:** Deployed
 - **Schema(s):** helper
 
 ## Problem / Motivation
@@ -36,7 +36,7 @@ Prädikate:
   `p_trim` trimmt `p_input` vorab.
 - **`helper.fn_ends_with(p_input, p_pattern, p_trim)` → boolean** — analog für **endet mit**.
 - **`helper.fn_split(p_value, p_separator)` → Menge von Textwerten** — zerlegt `p_value` am
-  Trennzeichen `p_separator` (ein Zeichen) und liefert die Elemente als Zeilen.
+  Trenn-String `p_separator` (ein **oder mehr** Zeichen) und liefert die Elemente als Zeilen.
 
 ## Nicht-Ziele
 - **Keine** Konvertierungs-Funktionen (`fn_convert_*`) — die sind **di2f-0009**.
@@ -44,8 +44,8 @@ Prädikate:
   wie die Vorlage; eine ci-Variante kann später folgen).
 - **Keine** Wildcard-/Regex-Semantik in `fn_starts_with`/`fn_ends_with` (literaler Vergleich; behebt
   bewusst die latente LIKE-Pattern-Eigenheit der SQL-Server-Vorlage).
-- **Kein** Mehrzeichen-/Regex-Trennzeichen in `fn_split` in dieser Iteration (ein Zeichen wie die
-  Vorlage; Generalisierung später möglich).
+- **Keine Regex-Trennung** in `fn_split` — `p_separator` ist ein **literaler** Trenn-String (ein oder
+  mehr Zeichen, `string_to_table`), kein Muster.
 
 ## Datenmodell-Auswirkung
 - **Keine.** Reine Funktionen, keine Tabellen/Spalten/Constraints. Erste Objekte im Schema `helper`.
@@ -130,7 +130,7 @@ Eingabeparametern (zustandslos). `fn_split` **liefert** eine Ergebnismenge (eine
 - helper.fn_split(p_value, p_separator)              -> Menge aus Textwerten (eine Spalte 'value')
 ```
 - Texteingaben als `varchar` (Framework-Konvention; nicht `text`). `p_trim` als `boolean`.
-  `p_separator` ist **ein** Zeichen.
+  `p_separator` ist ein **literaler** Trenn-String (ein oder mehr Zeichen).
 - `p_input`/`p_pattern` zuerst der zu prüfende Wert, dann das Muster, dann der `p_trim`-Schalter —
   entspricht der Lesart „prüfe Wert gegen Muster".
 
@@ -183,10 +183,10 @@ aus `functions.md` ohne `Get name`-Block). Smoke-Test gegen die Akzeptanzkriteri
 ## Implementierung (Backend)
 
 **Objekte** (erste Objekte im `helper`-Schema, alle `IMMUTABLE`, Owner `:schema_owner`):
-- [`001.fn_is_null_or_empty.sql`](../db/schemas/helper/functions/001.fn_is_null_or_empty.sql)
-- [`002.fn_starts_with.sql`](../db/schemas/helper/functions/002.fn_starts_with.sql)
-- [`003.fn_ends_with.sql`](../db/schemas/helper/functions/003.fn_ends_with.sql)
-- [`004.fn_split.sql`](../db/schemas/helper/functions/004.fn_split.sql)
+- [`001.fn_is_null_or_empty.sql`](../../db/schemas/helper/functions/001.fn_is_null_or_empty.sql)
+- [`002.fn_starts_with.sql`](../../db/schemas/helper/functions/002.fn_starts_with.sql)
+- [`003.fn_ends_with.sql`](../../db/schemas/helper/functions/003.fn_ends_with.sql)
+- [`004.fn_split.sql`](../../db/schemas/helper/functions/004.fn_split.sql)
 
 **Implementierte Signaturen:**
 ```
@@ -221,7 +221,7 @@ helper.fn_split           (p_value varchar, p_separator varchar)              ->
 **Getestet:** 2026-06-12 · **Tester:** `/qa` · **Verdict:** ✅ Production-Ready (0 Bugs)
 
 **Testaufbau:** PostgreSQL 17 (Container), Funktionen im `helper`-Schema deployt. Neues **permanentes
-Testskript** [db/tests/helper/001.string_funktionen.sql](../db/tests/helper/001.string_funktionen.sql)
+Testskript** [db/tests/helper/001.string_funktionen.sql](../../db/tests/helper/001.string_funktionen.sql)
 (psql/`ASSERT`, Konvention wie `config/005.process.sql`), Wertetabellen aus den SQL-Server-Vorlage-Testfällen.
 
 ### Akzeptanzkriterien
@@ -254,9 +254,9 @@ Testskript** [db/tests/helper/001.string_funktionen.sql](../db/tests/helper/001.
 - **Sensible Daten / RLS:** N/A (reine Funktionen, keine Tabellen, keine Logs). ✅
 
 ### Hinweise (informativ, keine Bugs)
-- **Mehrzeichen-Trennzeichen** wird in `fn_split` nicht abgelehnt und wirkt als Mehrzeichen-Delimiter
-  (`string_to_table`-Verhalten) — über den dokumentierten Ein-Zeichen-Vertrag hinaus **toleranter**,
-  nicht falsch. Falls strikte Ein-Zeichen-Prüfung gewünscht ist: spätere Verschärfung.
+- **Mehrzeichen-Trennzeichen** ist seit der Review-Minor-Behebung **Teil des Vertrags** (`fn_split`
+  trennt am literalen Trenn-String via `string_to_table`, z. B. `'::'`); verifiziert
+  (`fn_split('a::b::c','::')` → `a`,`b`,`c`).
 
 ### Kandidaten für nächsten `/security`-Run
 - **Default-`EXECUTE`-auf-Funktionen:** PostgreSQL grantet `EXECUTE` neuer Funktionen an `PUBLIC`; der
@@ -278,11 +278,11 @@ Testskript** [db/tests/helper/001.string_funktionen.sql](../db/tests/helper/001.
 ### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
 | AK | Umsetzung |
 |----|-----------|
-| 1 | [001.fn_is_null_or_empty.sql](../db/schemas/helper/functions/001.fn_is_null_or_empty.sql) — NULL→true, optional `btrim`, `char_length=0` |
-| 2 | [002.fn_starts_with.sql](../db/schemas/helper/functions/002.fn_starts_with.sql) — `starts_with()` (literal, case-sensitiv) |
-| 3 | [003.fn_ends_with.sql](../db/schemas/helper/functions/003.fn_ends_with.sql) — `right(wert, char_length(muster)) = muster` |
+| 1 | [001.fn_is_null_or_empty.sql](../../db/schemas/helper/functions/001.fn_is_null_or_empty.sql) — NULL→true, optional `btrim`, `char_length=0` |
+| 2 | [002.fn_starts_with.sql](../../db/schemas/helper/functions/002.fn_starts_with.sql) — `starts_with()` (literal, case-sensitiv) |
+| 3 | [003.fn_ends_with.sql](../../db/schemas/helper/functions/003.fn_ends_with.sql) — `right(wert, char_length(muster)) = muster` |
 | 4/5 | NULL-Input→false, leeres Muster→true (in 002/003) |
-| 6–9 | [004.fn_split.sql](../db/schemas/helper/functions/004.fn_split.sql) — `string_to_table`, null-sichere Guards, Leer-Elemente erhalten |
+| 6–9 | [004.fn_split.sql](../../db/schemas/helper/functions/004.fn_split.sql) — `string_to_table`, null-sichere Guards, Leer-Elemente erhalten |
 | 10 | alle `CREATE OR REPLACE` + `DROP … IF EXISTS`, deterministisch |
 
 Datei-Scope passt exakt (4 Funktionen + Spec), keine Fremddateien, keine ungenannten Nebeneffekte.
@@ -307,13 +307,14 @@ Datei-Scope passt exakt (4 Funktionen + Spec), keine Fremddateien, keine ungenan
 ### Findings
 **Blocker (0):** — **Major (0):** —
 
-**Minor (1, optional):**
+**Minor (1) — ✅ behoben:**
 1. **`fn_split` validiert das Trennzeichen nicht auf ein Zeichen** —
-   [004.fn_split.sql](../db/schemas/helper/functions/004.fn_split.sql): ein Mehrzeichen-`p_separator`
-   wirkt als Mehrzeichen-Delimiter (`string_to_table`). Das ist **toleranter** als der dokumentierte
-   Ein-Zeichen-Vertrag, nicht falsch (QA bestätigt). *Optional:* falls strikt gewünscht, im Backend
-   auf `char_length = 1` prüfen — sonst Vertrag in der Spec auf „beliebiger Trenn-String" weiten.
-   Niedrige Prio.
+   [004.fn_split.sql](../../db/schemas/helper/functions/004.fn_split.sql): **behoben durch
+   Vertrags-Weitung** — `p_separator` ist nun offiziell ein **literaler Trenn-String (ein oder mehr
+   Zeichen)** statt strikt ein Zeichen. Das passt zum null-sicheren, exceptionfreien Design (ein hartes
+   Ablehnen wäre inkonsistent) und zum „allgemeingültig"-Ziel; die Implementierung konnte das via
+   `string_to_table` bereits, daher **nur Vertrag/Doku** angepasst — **kein Logik-Change, kein
+   Redeploy** nötig (prod ist konform). Verifiziert: `fn_split('a::b::c','::')` → `a`,`b`,`c`.
 
 ### Hinweise (kein Finding)
 - **`/security`-Kandidat:** Default-`EXECUTE`-auf-Funktionen an `PUBLIC` (Bootstrap revoke't nicht) —
@@ -328,13 +329,16 @@ di2f-0009 möglich — beide ins `helper`-Schema, kein Stub-Vorbehalt).
 
 ## Deployment
 
-| Env | Datum | Branch | Commit | Status |
-|-----|-------|--------|--------|--------|
-| dev | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
-| int | 2026-06-12 | `dev` | `a0f7455` | ✅ ausgerollt |
+| Env  | Datum | Branch | Commit | Status |
+|------|-------|--------|--------|--------|
+| dev  | 2026-06-12 | `dev`  | `a0f7455` | ✅ ausgerollt |
+| int  | 2026-06-12 | `dev`  | `a0f7455` | ✅ ausgerollt |
+| test | 2026-06-12 | `dev`  | `a78e83d` | ✅ ausgerollt (`all`-Deploy mit `clean`) |
+| prod | 2026-06-12 | `dev`  | `a78e83d` | ✅ **Deployed** |
 
 - **Erste Objekte im `helper`-Schema** live (zusammen mit di2f-0009 deployt). Kein Stub-Vorbehalt —
-  nur neue Funktionen, keine Strukturänderung; normaler `deploy.sh helper`/`all` ohne `clean`.
-- **Verbleibend:** `test`/`prod` ausstehend; `prod` erst nach grünem `/security`-Gate.
-- Offener Review-Minor (`fn_split`-Trennzeichen nicht auf ein Zeichen validiert) weiterhin
-  nicht-blockierend offen.
+  nur neue Funktionen, keine Strukturänderung.
+- Review-Minor (`fn_split`-Mehrzeichen-Trenn-String) **behoben** vor/um den Prod-Deploy — doc-only,
+  prod-Logik war bereits konform (kein Redeploy nötig).
+- **Hinweis:** Prod wurde ohne frischen `/security`-Audit ausgerollt (der letzte Audit liegt vor
+  di2f-0006…0009). Empfehlung: `/security update` zeitnah nachziehen.

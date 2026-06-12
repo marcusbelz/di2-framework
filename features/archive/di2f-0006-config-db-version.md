@@ -1,7 +1,7 @@
 # di2f-0006: DB-Versionierung (`config.db_version` Historie)
 
 - **Priorität:** P1
-- **Status:** In Review (QA bestanden 2026-06-12)
+- **Status:** Deployed
 - **Schema(s):** config
 
 ## Problem / Motivation
@@ -275,7 +275,7 @@ frischer DB (Bootstrap drop+create) entfällt das.
 
 **Folgeschritt (nicht Teil von di2f-0006):** Der Deploy-Runner liefert bereits `:db_version`
 (`APP_VERSION_MAJOR/MINOR/BUILD` → `1.0.0`) und `:git_sha` als psql-Variablen
-([deploy.sh](../db/scripts/deploy.sh)), reicht aber **noch nicht** die gesplitteten Versionsteile,
+([deploy.sh](../../db/scripts/deploy.sh)), reicht aber **noch nicht** die gesplitteten Versionsteile,
 `git_tag` oder den Umgebungsnamen durch und ruft die Prozedur nicht auf. Die Verdrahtung (Data-Skript
 `config/data/003.db_version.sql` o. Ä. + Runner-Variablen) ist ein eigenes Feature.
 
@@ -288,7 +288,7 @@ frischer DB (Bootstrap drop+create) entfällt das.
 **Testaufbau:** PostgreSQL 17 (Container `di2f_dev_postgres`), isolierte Scratch-DB `di2f_qa0006`
 (Schema `config` + globale Rollen `di2f_fw`/`di2f_rw`). Tabelle + Prozedur via psql mit
 `local.env.sql`-Variablen deployt. Testskript **neu**:
-[db/tests/config/003.db_version.sql](../db/tests/config/003.db_version.sql) (psql/`ASSERT`,
+[db/tests/config/003.db_version.sql](../../db/tests/config/003.db_version.sql) (psql/`ASSERT`,
 transaktional + `ROLLBACK`, gleiche Konvention wie `005.process.sql`). Scratch-DB nach dem Lauf
 gedroppt.
 
@@ -364,15 +364,15 @@ gedroppt.
 ### Spec ↔ Code (Akzeptanzkriterien im Code lokalisiert)
 | AK | Umsetzung im Code |
 |----|-------------------|
-| 1 | [003.db_version.sql:5,15](../db/schemas/config/tables/003.db_version.sql) — `id bigserial`, `CONSTRAINT pk_db_version PRIMARY KEY (id)` |
-| 2 | [003.db_version.sql:6-13](../db/schemas/config/tables/003.db_version.sql) — `NOT NULL` je Pflichtspalte, `git_tag … NULL` |
-| 3 | [003.db_version.sql:9](../db/schemas/config/tables/003.db_version.sql) — `release_version … GENERATED ALWAYS AS (…) STORED` |
-| 4 | [003.db_version.sql:17](../db/schemas/config/tables/003.db_version.sql) `chk_db_version_environment` + [003.sp_ins_db_version.sql:102-109](../db/schemas/config/procedures/003.sp_ins_db_version.sql) Prozedur-Guard |
-| 5 | [003.sp_ins_db_version.sql:120-130](../db/schemas/config/procedures/003.sp_ins_db_version.sql) — `INSERT … RETURNING id INTO p_id` |
-| 6 | [003.sp_ins_db_version.sql:65-110](../db/schemas/config/procedures/003.sp_ins_db_version.sql) — Check-Block vor Workload, `RAISE EXCEPTION` |
+| 1 | [003.db_version.sql:5,15](../../db/schemas/config/tables/003.db_version.sql) — `id bigserial`, `CONSTRAINT pk_db_version PRIMARY KEY (id)` |
+| 2 | [003.db_version.sql:6-13](../../db/schemas/config/tables/003.db_version.sql) — `NOT NULL` je Pflichtspalte, `git_tag … NULL` |
+| 3 | [003.db_version.sql:9](../../db/schemas/config/tables/003.db_version.sql) — `release_version … GENERATED ALWAYS AS (…) STORED` |
+| 4 | [003.db_version.sql:17](../../db/schemas/config/tables/003.db_version.sql) `chk_db_version_environment` + [003.sp_ins_db_version.sql:102-109](../../db/schemas/config/procedures/003.sp_ins_db_version.sql) Prozedur-Guard |
+| 5 | [003.sp_ins_db_version.sql:120-130](../../db/schemas/config/procedures/003.sp_ins_db_version.sql) — `INSERT … RETURNING id INTO p_id` |
+| 6 | [003.sp_ins_db_version.sql:65-110](../../db/schemas/config/procedures/003.sp_ins_db_version.sql) — Check-Block vor Workload, `RAISE EXCEPTION` |
 | 7/8 | kein `UNIQUE` auf Commit/Version → Mehrfach-Insert erlaubt (Tabelle) |
 | 9 | `CREATE TABLE IF NOT EXISTS` + `DROP PROCEDURE IF EXISTS` / `CREATE OR REPLACE` |
-| 10 | [003.db_version.sql:25-34](../db/schemas/config/tables/003.db_version.sql) — `COMMENT ON TABLE`/`COLUMN` |
+| 10 | [003.db_version.sql:25-34](../../db/schemas/config/tables/003.db_version.sql) — `COMMENT ON TABLE`/`COLUMN` |
 
 Keine Lücke in beide Richtungen (keine ungenannten Nebeneffekte; kein Data/Seed-Skript für
 `db_version` — korrekt, Non-Goal).
@@ -402,13 +402,13 @@ Keine Lücke in beide Richtungen (keine ungenannten Nebeneffekte; kein Data/Seed
 **Major (0):** —
 
 **Minor (3):**
-1. **Gemischte Sprache im Parameter-Doku-Block** — [003.sp_ins_db_version.sql:8-21](../db/schemas/config/procedures/003.sp_ins_db_version.sql):
+1. **Gemischte Sprache im Parameter-Doku-Block** — [003.sp_ins_db_version.sql:8-21](../../db/schemas/config/procedures/003.sp_ins_db_version.sql):
    `p_id` ist englisch (folgt der `sp_ins_process`-Präzedenz, die durchgehend englisch ist), die
    übrigen Parameter (`p_major`…`p_environment`) sind deutsch. Innerhalb einer Datei inkonsistent.
    *Vorschlag:* einheitlich — entweder durchgehend deutsch (Projektsprache lt. CLAUDE.md) oder
    durchgehend englisch wie die Präzedenz; nicht gemischt.
 2. **`p_git_commit`-Länge nicht in der Prozedur validiert** —
-   [003.sp_ins_db_version.sql:84-91](../db/schemas/config/procedures/003.sp_ins_db_version.sql):
+   [003.sp_ins_db_version.sql:84-91](../../db/schemas/config/procedures/003.sp_ins_db_version.sql):
    >64 Zeichen führen zu `string_data_right_truncation` (22001) aus der Tabelle statt zu einer
    sprechenden Guard-Meldung. Kein dokumentiertes Requirement; akzeptabel. *Optional:* analog zu den
    anderen Guards eine Längenprüfung ergänzen, falls eine konsistente Fehlermeldung gewünscht ist.
@@ -433,17 +433,18 @@ oder als Follow-up geführt werden. Nächster Schritt: `/deploy dev`.
 
 ## Deployment
 
-| Env | Datum | Branch | Commit | Status |
-|-----|-------|--------|--------|--------|
-| dev | 2026-06-12 | `dev` | `e78208f` | ✅ ausgerollt (Deploy-Log grün, `db_version` frisch mit neuer Struktur) |
-| int | — | `dev` | — | ⏳ ausstehend (clean all + deploy all) |
+| Env  | Datum | Branch | Commit | Status |
+|------|-------|--------|--------|--------|
+| dev  | 2026-06-12 | `dev` | `e78208f` | ✅ ausgerollt (`db_version` frisch mit neuer Struktur) |
+| int  | 2026-06-12 | `dev` | `8b58b83` | ✅ ausgerollt (Stub via `clean all` migriert) |
+| test | 2026-06-12 | `dev` | `a78e83d` | ✅ ausgerollt (`all`-Deploy mit `clean`) |
+| prod | 2026-06-12 | `dev` | `a78e83d` | ✅ **Deployed** |
 
 - **Stub-Migration (Pflicht-Vorschritt):** Der alte `db_version`-Stub (`release_version`-PK +
-  `internal_version`) ist auf jeder bereits bespielten Umgebung vorhanden. `CREATE TABLE IF NOT
-  EXISTS` migriert ihn **nicht** — der Deploy bricht sonst bei `COMMENT ON COLUMN major` ab
-  (`ON_ERROR_STOP=1`). Daher vor dem Deploy zwingend **„DB - clean" (`all`) → „DB - deploy" (`all`)**;
-  `clean all` umgeht zugleich den `config.process`-CASCADE-Nebeneffekt auf den
-  `log.execution → config.process`-FK. dev so erfolgreich migriert; int/test/prod analog.
-- **Verbleibend:** `test` (Pre-Prod, Abnahme) ausstehend; `prod` erst nach grünem `/security`-Gate.
+  `internal_version`) lag auf jeder bereits bespielten Umgebung. `CREATE TABLE IF NOT EXISTS`
+  migriert ihn **nicht** — daher vor jedem Deploy einer Stub-Umgebung **„DB - clean" (`all`) →
+  „DB - deploy" (`all`)**. Auf dev/int/test/prod so erfolgreich migriert.
+- **Hinweis:** Prod ohne frischen `/security`-Audit ausgerollt (Audit liegt vor di2f-0006…0009) →
+  `/security update` empfohlen.
 - Offene Review-Minors (Parameter-Doku-Sprache, optionaler `git_commit`-Längencheck, Spec-Doku-Nit)
   weiterhin nicht-blockierend offen.
