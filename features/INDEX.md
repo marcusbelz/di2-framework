@@ -17,7 +17,7 @@
 
 | ID | Feature | Status | Spec | Erstellt |
 |----|---------|--------|------|----------|
-| di2f-0010 | Prozessprotokollierung `log.execution` — Insert/Update-Prozeduren | In Review | [di2f-0010](di2f-0010-execution-insert-update.md) | 2026-06-12 |
+| _(keine aktiven Features — alle deployt, siehe [archive/INDEX.md](archive/INDEX.md))_ | | | | |
 
 <!-- Add features above this line -->
 

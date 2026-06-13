@@ -22,7 +22,7 @@ Priorisierung **P0/P1/P2**. Feature-IDs (`di2f-XXXX`) werden vergeben, sobald pe
 |----------|---------|--------|-----------------|
 | P0 (MVP) | Datenbank-, Schema- & Rollen-Setup (`db/database/`) | Geplant | — |
 | P0 (MVP) | Schema `log` — Tabellen `Execution`, `Component`, `Trace`, `Error` | Geplant | — |
-| P0 (MVP) | Prozessprotokollierung `Execution` (Insert/Update) | In Review | [di2f-0010](../features/di2f-0010-execution-insert-update.md) |
+| P0 (MVP) | Prozessprotokollierung `Execution` (Insert/Update) | Deployed | [di2f-0010](../features/archive/di2f-0010-execution-insert-update.md) |
 | P0 (MVP) | Komponentenprotokollierung `Component` (Insert/Update inkl. Erfolg/Fehler/Warnung) | Geplant | — |
 | P0 (MVP) | Trace-Protokollierung (Insert beim Start, Update mit Status) | Geplant | — |
 | P0 (MVP) | Fehlerprotokollierung `Error` (Datenfehler) | Geplant | — |

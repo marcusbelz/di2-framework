@@ -20,5 +20,6 @@
 | di2f-0007 | Deploy schreibt db_version-Zeile (deploy.sh + Workflows verdrahten) | Deployed | [di2f-0007-deploy-db-version-verdrahtung.md](di2f-0007-deploy-db-version-verdrahtung.md) | 2026-06-12 |
 | di2f-0008 | helper-String-/Prädikat-Funktionen (starts_with, ends_with, is_null_or_empty, split) | Deployed | [di2f-0008-helper-string-funktionen.md](di2f-0008-helper-string-funktionen.md) | 2026-06-12 |
 | di2f-0009 | helper-Konvertierungs-Funktionen (convert_bit, convert_date/datetime/datetime2) | Deployed | [di2f-0009-helper-konvertierungs-funktionen.md](di2f-0009-helper-konvertierungs-funktionen.md) | 2026-06-12 |
+| di2f-0010 | Prozessprotokollierung `log.execution` — Insert/Update-Prozeduren | Deployed | [di2f-0010-execution-insert-update.md](di2f-0010-execution-insert-update.md) | 2026-06-12 |
 
 <!-- Add archived features above this line -->
